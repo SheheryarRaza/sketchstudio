@@ -75,3 +75,17 @@ _Avoid_: App theme, project template
 **Storage Adapter**:
 The storage abstraction interface responsible for persisting image binaries and project state across local disk, PostgreSQL metadata, or external storage.
 _Avoid_: File uploader, image saver
+
+### Onboarding & presets
+
+**Sandbox Mode**:
+The opt-out state in which the artist controls View Mode, Drawing Method, and Grid directly, rather than having the Atelier Workflow set them per stage. Mutually exclusive with active stage progression.
+_Avoid_: Free mode, manual mode, advanced mode
+
+**Workflow Preset**:
+A curated bundle of View Mode, Value Study configuration, Grid, Drawing Method, and Medium Preset, offered as a starting point immediately after uploading a Reference Image. Selecting one switches the artist into Sandbox Mode, since a Workflow Preset and the Atelier Workflow cannot both own the same settings at once.
+_Avoid_: Template, quick-start, style
+
+**Auto-Suggest Chip**:
+A dismissible recommendation of one Workflow Preset, shown after upload and derived from the Reference Image's existing histogram/luminance analysis rather than freeform interpretation. Proposes; never applies itself.
+_Avoid_: AI suggestion, smart recommendation, auto-apply
