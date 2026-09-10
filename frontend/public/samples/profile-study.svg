@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+  <defs>
+    <radialGradient id="profileBg" cx="55%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#2c2834" />
+      <stop offset="60%" stop-color="#18151f" />
+      <stop offset="100%" stop-color="#0a080e" />
+    </radialGradient>
+    
+    <linearGradient id="profileSkin" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fdfbf7" />
+      <stop offset="50%" stop-color="#d8cebf" />
+      <stop offset="100%" stop-color="#807262" />
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#profileBg)" />
+
+  <!-- Atelier Lighting glow behind profile -->
+  <circle cx="360" cy="420" r="320" fill="#ffffff" opacity="0.04" />
+
+  <!-- Neck and Spine -->
+  <path d="M 280 900 L 320 620 L 520 620 L 560 900 Z" fill="#1b171e" />
+  <path d="M 280 900 Q 320 740 330 620 L 420 620 Q 390 740 370 900 Z" fill="url(#profileSkin)" opacity="0.8" />
+
+  <!-- Cranium Mass (Circle for Loomis Method) -->
+  <circle cx="420" cy="380" r="180" fill="#25202b" stroke="#ffffff" stroke-width="1" stroke-dasharray="6,6" opacity="0.3" />
+
+  <!-- Profile Contour Silhouette Path -->
+  <path d="
+    M 380 180 
+    Q 280 200 240 280 
+    L 245 340 
+    Q 235 360 215 365 
+    L 200 450 
+    L 225 460 
+    Q 205 470 215 480 
+    L 240 485 
+    Q 210 515 220 540 
+    L 245 545 
+    Q 215 565 225 585 
+    L 250 590 
+    Q 235 635 270 655 
+    L 330 630 
+    Q 440 640 480 500 
+    Q 540 440 540 320 
+    Q 520 200 380 180 Z
+  " fill="url(#profileSkin)" stroke="#221d28" stroke-width="2" />
+
+  <!-- Profile Eyebrow Ridge -->
+  <path d="M 220 355 Q 260 345 300 355" stroke="#251f19" stroke-width="6" stroke-linecap="round" fill="none" />
+
+  <!-- Profile Eye in Perspective -->
+  <path d="M 240 380 L 275 370 L 275 390 Z" fill="#ffffff" stroke="#332a22" stroke-width="2" />
+  <ellipse cx="255" cy="380" rx="6" ry="8" fill="#1c1611" />
+  <circle cx="253" cy="378" r="2" fill="#ffffff" />
+  <!-- Upper Eyelid crease -->
+  <path d="M 235 373 Q 260 365 280 373" stroke="#5a4d40" stroke-width="2" fill="none" />
+
+  <!-- Ear (Loomis Quadrant Landmark) -->
+  <ellipse cx="430" cy="420" rx="35" ry="55" fill="#caa990" stroke="#483626" stroke-width="2" transform="rotate(10 430 420)" />
+  <path d="M 425 390 Q 450 410 435 435 Q 420 450 430 465" stroke="#483626" stroke-width="3" fill="none" />
+
+  <!-- Classical Hair Silhouette -->
+  <path d="M 260 260 Q 230 160 360 120 Q 520 100 600 240 Q 640 380 580 520 Q 540 360 480 260 Q 380 160 280 230 Z" fill="#130f18" />
+
+  <!-- Loomis Thirds Landmark Construction Guide overlay in SVG -->
+  <line x1="180" y1="200" x2="560" y2="200" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.4" />
+  <line x1="180" y1="355" x2="560" y2="355" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.4" />
+  <line x1="180" y1="465" x2="560" y2="465" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.4" />
+  <line x1="180" y1="655" x2="560" y2="655" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.4" />
+</svg>

@@ -30,22 +30,22 @@ const SAMPLE_PORTRAITS = [
   {
     title: 'Classical Atelier Portrait',
     category: 'High Dynamic Range',
-    url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1200&q=85',
+    url: '/samples/classical-portrait.svg',
   },
   {
     title: 'Dramatic Rembrandt Lighting',
     category: 'Core Shadow Study',
-    url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=1200&q=85',
+    url: '/samples/rembrandt-lighting.svg',
   },
   {
-    title: 'Greek Classical Sculpture',
-    category: 'Asaro Planes / Facets',
-    url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=85',
+    title: 'Asaro Planar Head',
+    category: 'Planes & Facets',
+    url: '/samples/asaro-head.svg',
   },
   {
-    title: 'Side Profile Structure',
-    category: 'Loomis Thirds & Ear Box',
-    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=85',
+    title: 'Loomis Profile Study',
+    category: 'Thirds & Ear Quadrant',
+    url: '/samples/profile-study.svg',
   },
 ];
 

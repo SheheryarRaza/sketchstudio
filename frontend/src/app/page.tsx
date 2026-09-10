@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { ProjectState, AtelierStage, DrawingMethodType } from '@/types/studio';
 import { generateDefaultValueLayers } from '@/utils/pencilGrades';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
@@ -127,6 +127,47 @@ export default function StudioHomePage() {
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Restore calibration and grid preferences from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedCalib = localStorage.getItem('sketchstudio_calibration_v1');
+      const savedGrid = localStorage.getItem('sketchstudio_grid_v1');
+
+      if (savedCalib || savedGrid) {
+        setProject((prev) => ({
+          ...prev,
+          calibration: savedCalib ? JSON.parse(savedCalib) : prev.calibration,
+          grid: savedGrid ? { ...prev.grid, ...JSON.parse(savedGrid) } : prev.grid,
+        }));
+      }
+    } catch (e) {
+      console.warn('Failed to load saved studio preferences from localStorage', e);
+    }
+  }, []);
+
+  // Persist calibration when updated
+  const handleSaveCalibration = (calib: typeof INITIAL_PROJECT_STATE.calibration) => {
+    try {
+      localStorage.setItem('sketchstudio_calibration_v1', JSON.stringify(calib));
+    } catch (e) {
+      console.warn('Failed to persist calibration', e);
+    }
+    setProject((prev) => ({ ...prev, calibration: calib }));
+  };
+
+  // Persist grid preferences when updated
+  const handleUpdateGrid = (updates: Partial<typeof INITIAL_PROJECT_STATE.grid>) => {
+    setProject((prev) => {
+      const newGrid = { ...prev.grid, ...updates };
+      try {
+        localStorage.setItem('sketchstudio_grid_v1', JSON.stringify(newGrid));
+      } catch (e) {
+        console.warn('Failed to persist grid', e);
+      }
+      return { ...prev, grid: newGrid };
+    });
+  };
 
   // Reliable file loading for local uploads & drag-drop
   const handleLoadImageFile = (file: File) => {
@@ -377,9 +418,7 @@ export default function StudioHomePage() {
               <GridConfigPanel
                 grid={project.grid}
                 calibration={project.calibration}
-                onChange={(updates) =>
-                  setProject((prev) => ({ ...prev, grid: { ...prev.grid, ...updates } }))
-                }
+                onChange={handleUpdateGrid}
                 onOpenCalibration={() => setIsCaliperOpen(true)}
               />
             )}
@@ -414,7 +453,7 @@ export default function StudioHomePage() {
         isOpen={isCaliperOpen}
         calibration={project.calibration}
         onClose={() => setIsCaliperOpen(false)}
-        onSaveCalibration={(calib) => setProject((prev) => ({ ...prev, calibration: calib }))}
+        onSaveCalibration={handleSaveCalibration}
       />
 
       <TeachingModeDrawer

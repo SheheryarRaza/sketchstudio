@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+  <defs>
+    <radialGradient id="asaroBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#2a303c" />
+      <stop offset="70%" stop-color="#141820" />
+      <stop offset="100%" stop-color="#0a0c10" />
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#asaroBg)" />
+
+  <!-- Asaro Planar Facets (Head in 3/4 Perspective) -->
+  <g stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round">
+    <!-- Forehead Top Planes (Highlight #ffffff) -->
+    <polygon points="350,180 430,175 420,240 350,245" fill="#f8fafc" />
+    <polygon points="280,200 350,180 350,245 295,255" fill="#e2e8f0" />
+    <polygon points="430,175 510,195 490,250 420,240" fill="#94a3b8" />
+
+    <!-- Forehead Frontal & Temporal Planes -->
+    <polygon points="295,255 350,245 350,320 300,320" fill="#cbd5e1" />
+    <polygon points="350,245 420,240 420,315 350,320" fill="#f1f5f9" />
+    <polygon points="420,240 490,250 470,320 420,315" fill="#64748b" />
+    <polygon points="230,240 295,255 300,320 240,325" fill="#94a3b8" />
+    <polygon points="490,250 560,260 535,335 470,320" fill="#475569" />
+
+    <!-- Glabella & Brow Ridge -->
+    <polygon points="350,320 385,320 380,355 350,355" fill="#ffffff" />
+    <polygon points="385,320 420,315 410,355 380,355" fill="#e2e8f0" />
+    <polygon points="300,320 350,320 350,355 315,350" fill="#cbd5e1" />
+    <polygon points="420,315 470,320 455,350 410,355" fill="#475569" />
+
+    <!-- Eye Sockets (Orbital Cavity Shadows) -->
+    <polygon points="315,350 350,355 345,410 295,400" fill="#64748b" />
+    <polygon points="410,355 455,350 440,400 395,410" fill="#334155" />
+    <polygon points="305,370 335,370 330,395 305,395" fill="#1e293b" />
+    <polygon points="405,370 435,370 430,395 405,395" fill="#0f172a" />
+
+    <!-- Nose Keystone, Ridge & Under-Nose -->
+    <polygon points="360,355 380,355 375,460 355,460" fill="#ffffff" />
+    <polygon points="350,355 360,355 355,460 340,455" fill="#e2e8f0" />
+    <polygon points="380,355 395,360 405,460 375,460" fill="#475569" />
+    <!-- Nose Tip Plane & Bottom Shadow -->
+    <polygon points="355,460 375,460 385,480 345,480" fill="#f8fafc" />
+    <polygon points="345,480 385,480 405,505 325,500" fill="#1e293b" />
+
+    <!-- Cheekbones (Zygomatic Arch) -->
+    <polygon points="260,360 300,355 295,450 250,440" fill="#cbd5e1" />
+    <polygon points="295,450 340,455 330,520 280,510" fill="#e2e8f0" />
+    <polygon points="455,350 515,360 495,450 445,445" fill="#334155" />
+    <polygon points="405,460 455,455 435,525 385,525" fill="#1e293b" />
+
+    <!-- Mouth Barrel & Philtrum -->
+    <polygon points="345,500 385,505 380,535 350,535" fill="#e2e8f0" />
+    <polygon points="330,535 395,535 385,550 340,550" fill="#334155" />
+    <polygon points="335,550 390,550 380,575 345,575" fill="#f1f5f9" />
+    <polygon points="335,575 390,575 385,600 340,600" fill="#1e293b" />
+
+    <!-- Chin (Mental Protuberance) Planes -->
+    <polygon points="340,600 385,600 380,645 345,645" fill="#ffffff" />
+    <polygon points="290,590 340,600 345,645 300,635" fill="#cbd5e1" />
+    <polygon points="385,600 430,590 415,635 380,645" fill="#475569" />
+    <polygon points="345,645 380,645 375,670 350,670" fill="#0f172a" />
+
+    <!-- Jaw & Masseter Planes -->
+    <polygon points="250,440 280,510 290,590 230,530" fill="#94a3b8" />
+    <polygon points="300,635 350,670 260,720 230,640" fill="#475569" />
+    <polygon points="430,590 485,520 520,440 480,610" fill="#1e293b" />
+    <polygon points="380,645 440,710 480,610 415,635" fill="#0f172a" />
+
+    <!-- Neck Cylinder Planes -->
+    <polygon points="300,680 370,680 360,820 290,820" fill="#94a3b8" />
+    <polygon points="370,680 440,690 430,820 360,820" fill="#334155" />
+    <polygon points="240,730 300,680 290,820 220,820" fill="#cbd5e1" />
+    <polygon points="440,690 510,720 490,820 430,820" fill="#1e293b" />
+  </g>
+</svg>

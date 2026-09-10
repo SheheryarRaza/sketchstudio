@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+  <defs>
+    <radialGradient id="rembrandtBg" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#2c1d11" />
+      <stop offset="50%" stop-color="#140d07" />
+      <stop offset="100%" stop-color="#050302" />
+    </radialGradient>
+    
+    <linearGradient id="warmSkinLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf4e7" />
+      <stop offset="40%" stop-color="#e0caa9" />
+      <stop offset="80%" stop-color="#967b57" />
+      <stop offset="100%" stop-color="#4e3b23" />
+    </linearGradient>
+
+    <radialGradient id="rembrandtTriangle" cx="48%" cy="42%" r="35%">
+      <stop offset="0%" stop-color="#fdf4e7" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#c2a47d" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#2c1d11" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Deep Obsidian Umber Background -->
+  <rect width="800" height="1000" fill="url(#rembrandtBg)" />
+
+  <!-- Atmospheric Chiaroscuro Beam -->
+  <ellipse cx="320" cy="350" rx="360" ry="420" fill="#fdf4e7" opacity="0.05" />
+
+  <!-- Shoulder & Neck Mass -->
+  <path d="M 180 920 L 260 620 L 540 640 L 650 920 Z" fill="#120c07" />
+  <path d="M 260 620 Q 300 750 220 920 L 360 920 Q 350 720 350 620 Z" fill="url(#warmSkinLight)" opacity="0.75" />
+
+  <!-- Cranium Base -->
+  <ellipse cx="380" cy="380" rx="180" ry="220" fill="#18110a" />
+
+  <!-- Lit Hemisphere of Face -->
+  <path d="M 360 160 Q 230 200 210 320 Q 190 440 240 560 Q 300 640 370 650 Q 360 520 350 420 Q 360 280 360 160 Z" fill="url(#warmSkinLight)" />
+
+  <!-- The Iconic Rembrandt Light Triangle on the Shadow Cheek -->
+  <polygon points="410,385 470,410 435,475" fill="url(#rembrandtTriangle)" />
+
+  <!-- High Forehead Light -->
+  <ellipse cx="290" cy="270" rx="75" ry="50" fill="#ffffff" opacity="0.85" />
+
+  <!-- Eyebrows -->
+  <path d="M 230 330 Q 280 315 330 335" stroke="#2c1b0f" stroke-width="8" stroke-linecap="round" fill="none" />
+  <path d="M 390 338 Q 440 325 480 345" stroke="#120a05" stroke-width="7" stroke-linecap="round" fill="none" />
+
+  <!-- Light Key Eye -->
+  <ellipse cx="280" cy="370" rx="35" ry="20" fill="#d9c5ab" />
+  <ellipse cx="280" cy="370" rx="18" ry="18" fill="#1e130a" />
+  <circle cx="280" cy="370" r="7" fill="#000000" />
+  <circle cx="276" cy="366" r="3.5" fill="#ffffff" />
+
+  <!-- Shadow Eye in Cavity -->
+  <ellipse cx="430" cy="375" rx="30" ry="16" fill="#1e130a" opacity="0.9" />
+  <circle cx="430" cy="375" r="5" fill="#000000" />
+
+  <!-- Nose Ridge & Illuminated Tip -->
+  <path d="M 330 330 L 320 460 L 345 460 L 345 330 Z" fill="#ffffff" opacity="0.8" />
+  <ellipse cx="330" cy="460" rx="16" ry="12" fill="#ebd9c0" />
+  <circle cx="328" cy="458" r="4" fill="#ffffff" />
+  <!-- Nose Cast Shadow sweeping into the right cheek -->
+  <polygon points="345,445 440,490 340,485" fill="#0c0704" />
+
+  <!-- Mouth & Tonal Structure -->
+  <path d="M 285 530 Q 330 515 375 530" stroke="#1c0f08" stroke-width="4" fill="none" />
+  <ellipse cx="330" cy="545" rx="20" ry="7" fill="#ebd9c0" />
+  <circle cx="330" cy="544" r="3" fill="#ffffff" opacity="0.7" />
+  <path d="M 290 560 Q 330 575 370 560" stroke="#150a04" stroke-width="6" fill="none" />
+
+  <!-- Strong Chin Highlight -->
+  <ellipse cx="335" cy="615" rx="28" ry="18" fill="#ffffff" opacity="0.75" />
+
+  <!-- Heavy Cast Shadow from Jaw onto Neck -->
+  <path d="M 240 640 Q 350 710 460 660 Q 330 730 240 640 Z" fill="#050302" />
+
+  <!-- Dramatic Dark Hair Mass -->
+  <path d="M 170 360 Q 150 180 320 120 Q 480 100 580 220 Q 640 400 580 580 Q 560 300 460 180 Q 320 140 220 250 Z" fill="#090503" />
+</svg>
