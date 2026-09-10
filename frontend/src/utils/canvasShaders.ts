@@ -15,7 +15,7 @@ export function renderValueStudyOnCanvas(
   sourceImage: HTMLImageElement | HTMLCanvasElement,
   targetCanvas: HTMLCanvasElement,
   layers: ValueLayer[],
-  viewMode: 'original' | 'valueStudy' | 'edges' | 'posterized',
+  viewMode: 'original' | 'valueStudy' | 'posterized',
   splitRatio?: number, // if split view (0 to 1)
   isolation: IsolationTarget = { kind: 'none' },
   ghostOpacity: number = 0.18,
@@ -71,14 +71,6 @@ export function renderValueStudyOnCanvas(
       }
 
       const lum = getLuminance(r, g, b);
-
-      if (viewMode === 'edges') {
-        out[i] = 255;
-        out[i + 1] = 255;
-        out[i + 2] = 255;
-        out[i + 3] = a;
-        continue;
-      }
 
       decideTonalPixel(lum, a, layers, renderMode, isolated, ghostOpacity, decided);
       out[i] = decided.r;

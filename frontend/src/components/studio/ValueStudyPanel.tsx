@@ -96,6 +96,16 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
         >
           Posterize
         </button>
+        <button
+          onClick={() => onUpdateProject(p => ({ ...p, viewMode: 'edges' }))}
+          className={`flex-1 py-1.5 rounded-lg text-center font-medium transition-all ${
+            viewMode === 'edges'
+              ? 'bg-emerald-500 text-slate-950 font-bold shadow'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Edges
+        </button>
       </div>
 
       <div className="flex flex-col gap-1.5">
