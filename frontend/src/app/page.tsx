@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { ProjectState, AtelierStage, DrawingMethodType } from '@/types/studio';
+import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats } from '@/types/studio';
 import { generateDefaultValueLayers } from '@/utils/pencilGrades';
+import { capRenderSize } from '@/utils/renderScale';
+import { fetchHistogram } from '@/utils/analysisApi';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
 import { StageProgressionBar } from '@/components/studio/StageProgressionBar';
 import { ValueStudyPanel } from '@/components/studio/ValueStudyPanel';
@@ -115,6 +117,7 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   splitPosition: 50,
   isolation: { kind: 'none' },
   ghostOpacity: 0.18,
+  histogram: { status: 'idle' },
 };
 
 type ActiveSidebarTab = 'values' | 'grid' | 'methods' | 'pencils' | 'mediums';
@@ -129,6 +132,51 @@ export default function StudioHomePage() {
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The authoritative luminance histogram is a one-shot backend analysis, fetched
+  // whenever the Reference Image changes. Cached per image so unrelated project
+  // state (layers, isolation, view mode, ...) never triggers a re-fetch.
+  const [loadedImageEl, setLoadedImageEl] = useState<HTMLImageElement | null>(null);
+  const histogramCacheRef = useRef<{ src: string; data: HistogramStats } | null>(null);
+  const [histogramRetryTick, setHistogramRetryTick] = useState(0);
+
+  useEffect(() => {
+    // loadedImageEl can briefly lag project.imageSrc while the new Image element is
+    // still decoding — only proceed once it actually holds the current photograph.
+    if (!project.imageSrc || !loadedImageEl || loadedImageEl.src !== project.imageSrc) return;
+
+    const cached = histogramCacheRef.current;
+    if (cached && cached.src === project.imageSrc) {
+      setProject((prev) => ({ ...prev, histogram: { status: 'ready', data: cached.data } }));
+      return;
+    }
+
+    let cancelled = false;
+    const src = project.imageSrc;
+    const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
+    setProject((prev) => ({ ...prev, histogram: { status: 'loading' } }));
+
+    fetchHistogram(loadedImageEl, size)
+      .then((data) => {
+        if (cancelled) return;
+        histogramCacheRef.current = { src, data };
+        setProject((prev) => ({ ...prev, histogram: { status: 'ready', data } }));
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setProject((prev) => ({
+          ...prev,
+          histogram: {
+            status: 'error',
+            message: err instanceof Error ? err.message : 'Failed to analyze the photograph',
+          },
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project.imageSrc, loadedImageEl, histogramRetryTick]);
 
   // Restore calibration and grid preferences from localStorage on mount
   useEffect(() => {
@@ -350,6 +398,7 @@ export default function StudioHomePage() {
           onUpdateProject={(updater) => setProject(updater)}
           onLoadImageFile={handleLoadImageFile}
           onLoadSampleImage={handleLoadSamplePortrait}
+          onImageLoaded={setLoadedImageEl}
         />
 
         {/* Right Tabbed Studio Control Panel */}
@@ -428,6 +477,7 @@ export default function StudioHomePage() {
               <ValueStudyPanel
                 project={project}
                 onUpdateProject={(updater) => setProject(updater)}
+                onRetryHistogram={() => setHistogramRetryTick((t) => t + 1)}
               />
             )}
 

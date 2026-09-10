@@ -29,6 +29,7 @@ interface StudioCanvasProps {
   onUpdateProject: (updater: (prev: ProjectState) => ProjectState) => void;
   onLoadImageFile: (file: File) => void;
   onLoadSampleImage: (url: string, title: string) => void;
+  onImageLoaded?: (img: HTMLImageElement) => void;
 }
 
 const SAMPLE_PORTRAITS = [
@@ -59,6 +60,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   onUpdateProject,
   onLoadImageFile,
   onLoadSampleImage,
+  onImageLoaded,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -102,6 +104,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       const naturalH = img.naturalHeight || 1000;
 
       setLoadedImage(img);
+      onImageLoaded?.(img);
 
       // Update project dimensions and re-center Loomis / Reilly guides to match image
       onUpdateProject(prev => ({

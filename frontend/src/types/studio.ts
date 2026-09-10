@@ -26,6 +26,22 @@ export type ValueFamily = 'shadows' | 'halftones' | 'lights';
 
 export type TonalRenderMode = 'valueStudy' | 'posterized';
 
+export interface HistogramStats {
+  width: number;
+  height: number;
+  meanLuminance: number;
+  medianLuminance: number;
+  deepDarkThreshold: number; // 10th percentile luminance
+  highlightThreshold: number; // 90th percentile luminance
+  histogram: number[]; // 256-bin luminance distribution, normalized 0-100
+}
+
+export type HistogramAnalysisState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; data: HistogramStats }
+  | { status: 'error'; message: string };
+
 export type IsolationTarget =
   | { kind: 'none' }
   | { kind: 'family'; family: ValueFamily }
@@ -147,4 +163,5 @@ export interface ProjectState {
   splitPosition: number; // 0-100 percentage
   isolation: IsolationTarget;
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
+  histogram: HistogramAnalysisState;
 }
