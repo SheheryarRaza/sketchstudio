@@ -1,5 +1,5 @@
 import type { RenderSize } from './renderScale';
-import type { HistogramStats } from '../types/studio';
+import type { HistogramStats, LandmarkStats, LoomisAnchorPoints, ReillyAnchorPoints } from '../types/studio';
 
 /**
  * Re-draws the source image at the given (display-capped) size and encodes it as PNG.
@@ -76,4 +76,72 @@ export async function fetchHistogram(
   }
 
   return res.json();
+}
+
+/**
+ * Posts the display-capped Reference Image to the Landmark Auto-Snap endpoint and
+ * returns the detected (or declared-fallback) Loomis/Reilly anchor positions, still
+ * in the capped-image pixel space they were measured in — see scaleLandmarksToImageSpace.
+ */
+export async function fetchLandmarks(
+  image: HTMLImageElement | HTMLCanvasElement,
+  size: RenderSize,
+): Promise<LandmarkStats> {
+  const capped = await toDisplayCappedBlob(image, size);
+
+  const form = new FormData();
+  form.append('file', capped, 'reference.png');
+
+  let res: Response;
+  try {
+    res = await fetch('/api/cv/landmarks', { method: 'POST', body: form });
+  } catch {
+    throw new Error('Could not reach the analysis backend');
+  }
+
+  if (!res.ok) {
+    throw new Error(`Landmark Auto-Snap failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+const scalePoint = (point: { x: number; y: number }, scale: number) => ({
+  x: point.x / scale,
+  y: point.y / scale,
+});
+
+/**
+ * Rescales Landmark Auto-Snap anchors from the capped-image space they were detected in
+ * onto the native Reference Image pixel space that DrawingMethodState is stored in.
+ */
+export function scaleLandmarksToImageSpace(
+  data: LandmarkStats,
+  size: RenderSize,
+): { loomis: LoomisAnchorPoints; reilly: ReillyAnchorPoints } {
+  const { loomis, reilly } = data;
+
+  return {
+    loomis: {
+      ...loomis,
+      center: scalePoint(loomis.center, size.scale),
+      radius: loomis.radius / size.scale,
+      browLineY: loomis.browLineY / size.scale,
+      noseLineY: loomis.noseLineY / size.scale,
+      chinY: loomis.chinY / size.scale,
+      jawWidth: loomis.jawWidth / size.scale,
+    },
+    reilly: {
+      browCenter: scalePoint(reilly.browCenter, size.scale),
+      noseTip: scalePoint(reilly.noseTip, size.scale),
+      mouthCenter: scalePoint(reilly.mouthCenter, size.scale),
+      chinBottom: scalePoint(reilly.chinBottom, size.scale),
+      leftEye: scalePoint(reilly.leftEye, size.scale),
+      rightEye: scalePoint(reilly.rightEye, size.scale),
+      leftJaw: scalePoint(reilly.leftJaw, size.scale),
+      rightJaw: scalePoint(reilly.rightJaw, size.scale),
+      leftTemple: scalePoint(reilly.leftTemple, size.scale),
+      rightTemple: scalePoint(reilly.rightTemple, size.scale),
+    },
+  };
 }
