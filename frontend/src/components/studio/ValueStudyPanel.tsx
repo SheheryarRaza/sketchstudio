@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import type { ValueLayer, ProjectState, PencilHardness } from '../../types/studio';
+import type { ValueLayer, ProjectState, PencilHardness, IsolationTarget } from '../../types/studio';
 import { generateDefaultValueLayers, PENCIL_DATABASE } from '../../utils/pencilGrades';
-import { Layers, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
+import { VALUE_FAMILIES, layersInFamily } from '../../utils/tonalDecision';
+import { Layers, Eye, EyeOff, SlidersHorizontal, Focus } from 'lucide-react';
 
 interface ValueStudyPanelProps {
   project: ProjectState;
@@ -18,14 +19,16 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   project,
   onUpdateProject,
 }) => {
-  const { layers, numValueLayers, viewMode } = project;
+  const { layers, numValueLayers, viewMode, isolation, ghostOpacity } = project;
 
   const handleLevelCountChange = (count: number) => {
-    const newLayers = generateDefaultValueLayers(count);
     onUpdateProject(prev => ({
       ...prev,
       numValueLayers: count,
-      layers: newLayers,
+      layers: generateDefaultValueLayers(count),
+      // Layer ids encode the layer count, so a layer isolation cannot outlive a
+      // recount. A Value Family one can, being defined by tonal range.
+      isolation: prev.isolation.kind === 'layer' ? { kind: 'none' } : prev.isolation,
     }));
   };
 
@@ -37,14 +40,17 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
     });
   };
 
-  const handleToggleSolo = (index: number) => {
-    onUpdateProject(prev => {
-      const updated = prev.layers.map((l, i) => ({
-        ...l,
-        isSolo: i === index ? !l.isSolo : false,
-      }));
-      return { ...prev, layers: updated };
-    });
+  const targetsSame = (a: IsolationTarget, b: IsolationTarget): boolean => {
+    if (a.kind === 'layer' && b.kind === 'layer') return a.layerId === b.layerId;
+    if (a.kind === 'family' && b.kind === 'family') return a.family === b.family;
+    return false;
+  };
+
+  const toggleIsolation = (target: IsolationTarget) => {
+    onUpdateProject(prev => ({
+      ...prev,
+      isolation: targetsSame(prev.isolation, target) ? { kind: 'none' } : target,
+    }));
   };
 
   return (
@@ -117,13 +123,75 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
         </div>
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between text-slate-400">
+          <span className="flex items-center gap-1">
+            <Focus className="w-3.5 h-3.5" />
+            <span>Isolate to Shade</span>
+          </span>
+          {isolation.kind !== 'none' && (
+            <button
+              onClick={() => onUpdateProject(p => ({ ...p, isolation: { kind: 'none' } }))}
+              className="text-[10px] font-bold text-studio-accent hover:text-white uppercase tracking-wide"
+            >
+              Show All
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-1">
+          {VALUE_FAMILIES.map((family) => {
+            const count = layersInFamily(layers, family.id).length;
+            const target: IsolationTarget = { kind: 'family', family: family.id };
+            const active = targetsSame(isolation, target);
+            return (
+              <button
+                key={family.id}
+                onClick={() => toggleIsolation(target)}
+                disabled={count === 0}
+                title={`${family.description} (${count} ${count === 1 ? 'band' : 'bands'})`}
+                className={`py-1.5 px-1 rounded-lg font-semibold text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  active
+                    ? 'bg-amber-400 text-slate-950 shadow-md ring-1 ring-white/20'
+                    : 'bg-studio-850 hover:bg-studio-800 text-slate-300'
+                }`}
+              >
+                {family.name}
+                <span className="block text-[9px] font-mono opacity-70">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {isolation.kind !== 'none' && (
+          <div className="flex flex-col gap-0.5 pt-1">
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span>Reference underlay</span>
+              <span className="text-studio-accent font-bold">{Math.round(ghostOpacity * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="60"
+              value={Math.round(ghostOpacity * 100)}
+              onChange={(e) =>
+                onUpdateProject(p => ({ ...p, ghostOpacity: parseInt(e.target.value) / 100 }))
+              }
+              className="w-full h-1 bg-studio-800 rounded-lg cursor-pointer"
+            />
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col gap-2 max-h-[380px] overflow-y-auto pr-1">
         {layers.map((layer, idx) => {
+          const target: IsolationTarget = { kind: 'layer', layerId: layer.id };
+          const isolated = targetsSame(isolation, target);
           return (
             <div
               key={layer.id}
               className={`p-2.5 rounded-xl border transition-all flex flex-col gap-2 ${
-                layer.isSolo
+                isolated
                   ? 'bg-studio-850/90 border-studio-accent shadow-md ring-1 ring-studio-accent/30'
                   : layer.visible
                   ? 'bg-studio-900/90 border-studio-800'
@@ -143,21 +211,26 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
 
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => handleToggleSolo(idx)}
+                    onClick={() => toggleIsolation(target)}
                     className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase transition-all ${
-                      layer.isSolo
+                      isolated
                         ? 'bg-amber-400 text-slate-950'
                         : 'bg-studio-800 text-slate-400 hover:text-slate-200'
                     }`}
-                    title="Isolate / Solo this value band"
+                    title="Isolate this value band as a flat mask to shade"
                   >
-                    Solo
+                    Isolate
                   </button>
 
                   <button
                     onClick={() => handleLayerChange(idx, { visible: !layer.visible })}
-                    className="p-1 rounded text-slate-400 hover:text-white hover:bg-studio-800"
-                    title={layer.visible ? 'Hide Layer' : 'Show Layer'}
+                    disabled={isolation.kind !== 'none'}
+                    className="p-1 rounded text-slate-400 hover:text-white hover:bg-studio-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                    title={
+                      isolation.kind !== 'none'
+                        ? 'Unavailable while a value band is isolated'
+                        : layer.visible ? 'Hide Layer' : 'Show Layer'
+                    }
                   >
                     {layer.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-slate-600" />}
                   </button>

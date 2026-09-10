@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { ProjectState } from '../../types/studio';
 import { renderValueStudyOnCanvas } from '../../utils/canvasShaders';
+import { capRenderSize } from '../../utils/renderScale';
 import { GridOverlay } from './GridOverlay';
 import { MethodOverlays } from './MethodOverlays';
 import { CaliperOverlay } from './CaliperOverlay';
@@ -148,18 +149,23 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     };
   }, [project.imageSrc]);
 
+  // Working resolution for the canvas backing store (ADR-0004). The wrapper below
+  // stays shrink-0 so its box remains the Reference Image's coordinate space; as a
+  // flex item it would otherwise collapse and pull the canvas off the overlays.
+  const renderSize = useMemo(
+    () => capRenderSize(project.imageWidth || 600, project.imageHeight || 800),
+    [project.imageWidth, project.imageHeight],
+  );
+
   // Re-render canvas shader
   const renderScene = useCallback(() => {
     const canvas = canvasRef.current;
     const img = loadedImage;
     if (!canvas || !img) return;
 
-    const w = project.imageWidth || img.naturalWidth || 800;
-    const h = project.imageHeight || img.naturalHeight || 1000;
-
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
+    if (canvas.width !== renderSize.width || canvas.height !== renderSize.height) {
+      canvas.width = renderSize.width;
+      canvas.height = renderSize.height;
     }
 
     const splitRatio = project.viewMode === 'split' ? project.splitPosition / 100 : undefined;
@@ -168,9 +174,11 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       canvas,
       project.layers,
       project.viewMode === 'split' ? 'valueStudy' : project.viewMode,
-      splitRatio
+      splitRatio,
+      project.isolation,
+      project.ghostOpacity
     );
-  }, [loadedImage, project.imageWidth, project.imageHeight, project.layers, project.viewMode, project.splitPosition]);
+  }, [loadedImage, renderSize, project.layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity]);
 
   useEffect(() => {
     renderScene();
@@ -386,7 +394,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       {/* Main Drawing Canvas when Image is Loaded */}
       {project.imageSrc ? (
         <div
-          className="relative shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform duration-75 origin-center rounded-lg overflow-hidden border border-studio-800/80"
+          className="relative shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform duration-75 origin-center rounded-lg overflow-hidden ring-1 ring-studio-800/80"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             width: project.imageWidth || 600,
@@ -395,9 +403,9 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         >
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 block rounded"
-            width={project.imageWidth || 600}
-            height={project.imageHeight || 800}
+            className="absolute inset-0 block rounded w-full h-full"
+            width={renderSize.width}
+            height={renderSize.height}
           />
 
           {/* Split Screen Slider Bar */}

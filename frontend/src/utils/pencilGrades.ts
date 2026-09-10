@@ -85,7 +85,6 @@ export function generateDefaultValueLayers(levels: number): ValueLayer[] {
       pencilDescription: `${pencilInfo.name} - ${pencilInfo.recommendedFor}`,
       visible: true,
       opacity: 1.0,
-      isSolo: false,
     });
   }
 
