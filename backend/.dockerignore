@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+uploads/*
+!uploads/.gitkeep
+sketch_studio.db
