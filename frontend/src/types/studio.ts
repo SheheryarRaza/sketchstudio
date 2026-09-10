@@ -42,6 +42,20 @@ export type HistogramAnalysisState =
   | { status: 'ready'; data: HistogramStats }
   | { status: 'error'; message: string };
 
+export type LandmarkSource = 'detected' | 'fallback';
+
+export interface LandmarkStats {
+  source: LandmarkSource;
+  loomis: LoomisAnchorPoints;
+  reilly: ReillyAnchorPoints;
+}
+
+export type LandmarkAnalysisState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; data: LandmarkStats }
+  | { status: 'error'; message: string };
+
 export type IsolationTarget =
   | { kind: 'none' }
   | { kind: 'family'; family: ValueFamily }
@@ -164,4 +178,5 @@ export interface ProjectState {
   isolation: IsolationTarget;
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
   histogram: HistogramAnalysisState;
+  landmarks: LandmarkAnalysisState;
 }

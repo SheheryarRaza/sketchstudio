@@ -1,14 +1,16 @@
 'use client';
 
 import React from 'react';
-import type { DrawingMethodState, DrawingMethodType } from '../../types/studio';
+import type { DrawingMethodState, DrawingMethodType, LandmarkAnalysisState } from '../../types/studio';
 import { DRAWING_METHODS_DATABASE } from '../../types/methods';
-import { BookOpen, Move, GraduationCap } from 'lucide-react';
+import { BookOpen, Move, GraduationCap, ScanFace, AlertTriangle } from 'lucide-react';
 
 interface MethodSelectorPanelProps {
   methods: DrawingMethodState;
+  landmarks: LandmarkAnalysisState;
   onChange: (updated: Partial<DrawingMethodState>) => void;
   onOpenTeachingMode: (methodType: DrawingMethodType) => void;
+  onRetryLandmarks: () => void;
 }
 
 const METHODS_LIST: Array<{ type: DrawingMethodType; name: string; creator: string; badge: string }> = [
@@ -23,10 +25,13 @@ const METHODS_LIST: Array<{ type: DrawingMethodType; name: string; creator: stri
 
 export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
   methods,
+  landmarks,
   onChange,
   onOpenTeachingMode,
+  onRetryLandmarks,
 }) => {
   const activeMethodInfo = DRAWING_METHODS_DATABASE[methods.activeMethod];
+  const usesLandmarkAutoSnap = methods.activeMethod === 'loomis' || methods.activeMethod === 'reilly';
 
   return (
     <div className="flex flex-col gap-4 p-4 text-xs">
@@ -67,6 +72,43 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
           <p className="text-slate-300 text-[11px] leading-relaxed">
             {activeMethodInfo.shortSummary}
           </p>
+        </div>
+      )}
+
+      {usesLandmarkAutoSnap && landmarks.status !== 'idle' && (
+        <div className="bg-studio-900 border border-studio-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
+          {landmarks.status === 'loading' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <ScanFace className="w-3.5 h-3.5 animate-pulse" />
+              Landmark Auto-Snap scanning for a face…
+            </span>
+          )}
+          {landmarks.status === 'ready' && landmarks.data.source === 'detected' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+              <ScanFace className="w-3.5 h-3.5" />
+              Anchors seeded from the detected face
+            </span>
+          )}
+          {landmarks.status === 'ready' && landmarks.data.source === 'fallback' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-studio-gold">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              No face detected — anchors are a proportional starting point
+            </span>
+          )}
+          {landmarks.status === 'error' && (
+            <>
+              <span className="flex items-center gap-1.5 text-[10px] text-red-400 truncate">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{landmarks.message}</span>
+              </span>
+              <button
+                onClick={onRetryLandmarks}
+                className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-studio-800 text-slate-200 hover:bg-studio-850 border border-studio-700 shrink-0"
+              >
+                Retry
+              </button>
+            </>
+          )}
         </div>
       )}
 

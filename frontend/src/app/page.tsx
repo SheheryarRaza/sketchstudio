@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats } from '@/types/studio';
+import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats, LandmarkStats } from '@/types/studio';
 import { generateDefaultValueLayers } from '@/utils/pencilGrades';
 import { capRenderSize } from '@/utils/renderScale';
-import { fetchHistogram } from '@/utils/analysisApi';
+import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace } from '@/utils/analysisApi';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
 import { StageProgressionBar } from '@/components/studio/StageProgressionBar';
 import { ValueStudyPanel } from '@/components/studio/ValueStudyPanel';
@@ -118,6 +118,7 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   isolation: { kind: 'none' },
   ghostOpacity: 0.18,
   histogram: { status: 'idle' },
+  landmarks: { status: 'idle' },
 };
 
 type ActiveSidebarTab = 'values' | 'grid' | 'methods' | 'pencils' | 'mediums';
@@ -177,6 +178,54 @@ export default function StudioHomePage() {
       cancelled = true;
     };
   }, [project.imageSrc, loadedImageEl, histogramRetryTick]);
+
+  // Landmark Auto-Snap: seeds Anchor Placement from the detected face, or the declared
+  // proportional fallback when none is found. Same one-shot-per-image pattern as the
+  // histogram above; applying it merges into methods.loomis/reilly, which the artist can
+  // still drag afterwards since this only runs again on a new image or an explicit retry.
+  const landmarksCacheRef = useRef<{ src: string; data: LandmarkStats } | null>(null);
+  const [landmarksRetryTick, setLandmarksRetryTick] = useState(0);
+
+  useEffect(() => {
+    if (!project.imageSrc || !loadedImageEl || loadedImageEl.src !== project.imageSrc) return;
+
+    const cached = landmarksCacheRef.current;
+    if (cached && cached.src === project.imageSrc) {
+      setProject((prev) => ({ ...prev, landmarks: { status: 'ready', data: cached.data } }));
+      return;
+    }
+
+    let cancelled = false;
+    const src = project.imageSrc;
+    const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
+    setProject((prev) => ({ ...prev, landmarks: { status: 'loading' } }));
+
+    fetchLandmarks(loadedImageEl, size)
+      .then((data) => {
+        if (cancelled) return;
+        landmarksCacheRef.current = { src, data };
+        const { loomis, reilly } = scaleLandmarksToImageSpace(data, size);
+        setProject((prev) => ({
+          ...prev,
+          landmarks: { status: 'ready', data },
+          methods: { ...prev.methods, loomis, reilly },
+        }));
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setProject((prev) => ({
+          ...prev,
+          landmarks: {
+            status: 'error',
+            message: err instanceof Error ? err.message : 'Landmark Auto-Snap failed',
+          },
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project.imageSrc, loadedImageEl, landmarksRetryTick]);
 
   // Restore calibration and grid preferences from localStorage on mount
   useEffect(() => {
@@ -493,6 +542,7 @@ export default function StudioHomePage() {
             {activeTab === 'methods' && (
               <MethodSelectorPanel
                 methods={project.methods}
+                landmarks={project.landmarks}
                 onChange={(updates) =>
                   setProject((prev) => ({ ...prev, methods: { ...prev.methods, ...updates } }))
                 }
@@ -500,6 +550,7 @@ export default function StudioHomePage() {
                   setTeachingMethod(type);
                   setIsTeachingOpen(true);
                 }}
+                onRetryLandmarks={() => setLandmarksRetryTick((t) => t + 1)}
               />
             )}
 
