@@ -183,13 +183,28 @@ export default function StudioHomePage() {
     reader.readAsDataURL(file);
   };
 
-  // Sample portrait loader
-  const handleLoadSamplePortrait = (url: string, title: string) => {
-    setProject((prev) => ({
-      ...prev,
-      imageSrc: url,
-      title: title,
-    }));
+  // Sample portrait loader (converts to base64 Data URL for zero-CORS instant canvas rendering)
+  const handleLoadSamplePortrait = async (url: string, title: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setProject((prev) => ({
+          ...prev,
+          imageSrc: dataUrl,
+          title: title,
+        }));
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      setProject((prev) => ({
+        ...prev,
+        imageSrc: url,
+        title: title,
+      }));
+    }
   };
 
   const handleStageChange = (newStage: AtelierStage) => {

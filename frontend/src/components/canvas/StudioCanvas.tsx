@@ -57,7 +57,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null);
 
   const [scale, setScale] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -70,10 +70,11 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   // Load and fit image automatically
   useEffect(() => {
     if (!project.imageSrc) {
-      imgRef.current = null;
+      setLoadedImage(null);
       return;
     }
 
+    let isMounted = true;
     const img = new Image();
     if (project.imageSrc.startsWith('http')) {
       img.crossOrigin = 'anonymous';
@@ -81,9 +82,11 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     img.src = project.imageSrc;
 
     img.onload = () => {
-      imgRef.current = img;
-      const naturalW = img.naturalWidth || 600;
-      const naturalH = img.naturalHeight || 800;
+      if (!isMounted) return;
+      const naturalW = img.naturalWidth || 800;
+      const naturalH = img.naturalHeight || 1000;
+
+      setLoadedImage(img);
 
       // Update project dimensions and re-center Loomis / Reilly guides to match image
       onUpdateProject(prev => ({
@@ -138,20 +141,25 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         setScale(autoFit);
         setPan({ x: 0, y: 0 });
       }
+    };
 
-      renderScene();
+    return () => {
+      isMounted = false;
     };
   }, [project.imageSrc]);
 
   // Re-render canvas shader
   const renderScene = useCallback(() => {
     const canvas = canvasRef.current;
-    const img = imgRef.current;
+    const img = loadedImage;
     if (!canvas || !img) return;
 
-    if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+    const w = project.imageWidth || img.naturalWidth || 800;
+    const h = project.imageHeight || img.naturalHeight || 1000;
+
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
     }
 
     const splitRatio = project.viewMode === 'split' ? project.splitPosition / 100 : undefined;
@@ -162,7 +170,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       project.viewMode === 'split' ? 'valueStudy' : project.viewMode,
       splitRatio
     );
-  }, [project.layers, project.viewMode, project.splitPosition]);
+  }, [loadedImage, project.imageWidth, project.imageHeight, project.layers, project.viewMode, project.splitPosition]);
 
   useEffect(() => {
     renderScene();
