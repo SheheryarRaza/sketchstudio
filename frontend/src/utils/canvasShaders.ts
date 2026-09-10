@@ -1,4 +1,5 @@
-import type { ValueLayer } from '../types/studio';
+import type { IsolationTarget, ValueLayer } from '../types/studio';
+import { createTonalPixel, decideTonalPixel, isolatedLayerIds } from './tonalDecision';
 
 /**
  * Calculates perceived luminance using Rec. 709 HDTV ITU standard
@@ -14,8 +15,10 @@ export function renderValueStudyOnCanvas(
   sourceImage: HTMLImageElement | HTMLCanvasElement,
   targetCanvas: HTMLCanvasElement,
   layers: ValueLayer[],
-  viewMode: 'original' | 'valueStudy' | 'edges' | 'posterized',
-  splitRatio?: number // if split view (0 to 1)
+  viewMode: 'original' | 'valueStudy' | 'posterized',
+  splitRatio?: number, // if split view (0 to 1)
+  isolation: IsolationTarget = { kind: 'none' },
+  ghostOpacity: number = 0.18,
 ) {
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
@@ -43,8 +46,9 @@ export function renderValueStudyOnCanvas(
     const outputData = ctx.createImageData(width, height);
     const out = outputData.data;
 
-    const hasSolo = layers.some(l => l.isSolo);
-    const activeLayers = layers.filter(l => hasSolo ? l.isSolo : l.visible);
+    const isolated = isolatedLayerIds(layers, isolation);
+    const decided = createTonalPixel();
+    const renderMode = viewMode === 'posterized' ? 'posterized' : 'valueStudy';
 
     const splitX = splitRatio !== undefined ? Math.floor(width * splitRatio) : -1;
 
@@ -68,44 +72,11 @@ export function renderValueStudyOnCanvas(
 
       const lum = getLuminance(r, g, b);
 
-      if (viewMode === 'edges') {
-        out[i] = 255;
-        out[i + 1] = 255;
-        out[i + 2] = 255;
-        out[i + 3] = a;
-        continue;
-      }
-
-      // Match layer
-      let matched = false;
-      for (const layer of activeLayers) {
-        if (lum >= layer.minThreshold && lum <= layer.maxThreshold) {
-          matched = true;
-          if (viewMode === 'posterized') {
-            // Quantize to layer midpoint
-            const mid = (layer.minThreshold + layer.maxThreshold) / 2;
-            out[i] = mid;
-            out[i + 1] = mid;
-            out[i + 2] = mid;
-            out[i + 3] = Math.round(a * layer.opacity);
-          } else {
-            // Value study - grayscale tone
-            out[i] = lum;
-            out[i + 1] = lum;
-            out[i + 2] = lum;
-            out[i + 3] = Math.round(a * layer.opacity);
-          }
-          break;
-        }
-      }
-
-      if (!matched) {
-        // Outside active/visible layers -> transparent or faint paper tone
-        out[i] = 245;
-        out[i + 1] = 245;
-        out[i + 2] = 245;
-        out[i + 3] = 40; // faint watermark
-      }
+      decideTonalPixel(lum, a, layers, renderMode, isolated, ghostOpacity, decided);
+      out[i] = decided.r;
+      out[i + 1] = decided.g;
+      out[i + 2] = decided.b;
+      out[i + 3] = decided.a;
     }
 
     ctx.putImageData(outputData, 0, 0);

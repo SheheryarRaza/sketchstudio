@@ -113,6 +113,8 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   },
   viewMode: 'valueStudy',
   splitPosition: 50,
+  isolation: { kind: 'none' },
+  ghostOpacity: 0.18,
 };
 
 type ActiveSidebarTab = 'values' | 'grid' | 'methods' | 'pencils' | 'mediums';

@@ -11,12 +11,13 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    // Server-side rewrite runs inside the frontend container, so it must resolve the
+    // backend over the Docker network (BACKEND_INTERNAL_URL), never the browser-facing
+    // NEXT_PUBLIC_API_URL — that resolves to the frontend container itself in Compose.
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL 
-          ? `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`
-          : 'http://backend:8000/api/:path*',
+        destination: `${process.env.BACKEND_INTERNAL_URL || 'http://backend:8000'}/api/:path*`,
       },
     ];
   },

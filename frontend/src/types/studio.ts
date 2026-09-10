@@ -22,6 +22,15 @@ export type PencilHardness =
   | 'F' | 'HB' | 'B' | '2B' | '3B' | '4B' | '5B' | '6B' | '7B' | '8B' | '9B'
   | 'Charcoal' | 'White_Chalk';
 
+export type ValueFamily = 'shadows' | 'halftones' | 'lights';
+
+export type TonalRenderMode = 'valueStudy' | 'posterized';
+
+export type IsolationTarget =
+  | { kind: 'none' }
+  | { kind: 'family'; family: ValueFamily }
+  | { kind: 'layer'; layerId: string };
+
 export interface ValueLayer {
   id: string;
   name: string;
@@ -32,7 +41,6 @@ export interface ValueLayer {
   pencilDescription: string;
   visible: boolean;
   opacity: number;
-  isSolo: boolean;
 }
 
 export interface GridConfig {
@@ -137,4 +145,6 @@ export interface ProjectState {
   methods: DrawingMethodState;
   viewMode: 'original' | 'valueStudy' | 'edges' | 'split' | 'posterized';
   splitPosition: number; // 0-100 percentage
+  isolation: IsolationTarget;
+  ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
 }

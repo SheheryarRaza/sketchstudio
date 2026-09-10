@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { ProjectState } from '../../types/studio';
 import { renderValueStudyOnCanvas } from '../../utils/canvasShaders';
+import { capRenderSize } from '../../utils/renderScale';
+import { fetchEdgeContours } from '../../utils/analysisApi';
 import { GridOverlay } from './GridOverlay';
 import { MethodOverlays } from './MethodOverlays';
 import { CaliperOverlay } from './CaliperOverlay';
@@ -17,6 +19,9 @@ import {
   Layers,
   Ruler,
   Compass,
+  Loader2,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 
 interface StudioCanvasProps {
@@ -66,6 +71,16 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [bgTheme, setBgTheme] = useState<'obsidian' | 'neutral' | 'toned' | 'white'>('obsidian');
+
+  // Edges view is backend-rendered (contour extraction), unlike the other shader
+  // views which run client-side. Cache the last result per Reference Image so
+  // switching views doesn't re-post the image, and track load/error state so a
+  // failed call surfaces to the artist instead of a stale or blank canvas.
+  const edgesCacheRef = useRef<{ src: string; bitmap: HTMLImageElement } | null>(null);
+  const [edgesState, setEdgesState] = useState<
+    { status: 'idle' } | { status: 'loading' } | { status: 'error'; message: string }
+  >({ status: 'idle' });
+  const [edgesRetryTick, setEdgesRetryTick] = useState(0);
 
   // Load and fit image automatically
   useEffect(() => {
@@ -148,33 +163,106 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     };
   }, [project.imageSrc]);
 
-  // Re-render canvas shader
+  // Working resolution for the canvas backing store (ADR-0004). The wrapper below
+  // stays shrink-0 so its box remains the Reference Image's coordinate space; as a
+  // flex item it would otherwise collapse and pull the canvas off the overlays.
+  const renderSize = useMemo(
+    () => capRenderSize(project.imageWidth || 600, project.imageHeight || 800),
+    [project.imageWidth, project.imageHeight],
+  );
+
+  // Re-render canvas shader (edges view is handled separately below — it's
+  // backend-rendered, not a client-side pixel shader)
   const renderScene = useCallback(() => {
     const canvas = canvasRef.current;
     const img = loadedImage;
-    if (!canvas || !img) return;
+    const { viewMode } = project;
+    if (!canvas || !img || viewMode === 'edges') return;
 
-    const w = project.imageWidth || img.naturalWidth || 800;
-    const h = project.imageHeight || img.naturalHeight || 1000;
-
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
+    if (canvas.width !== renderSize.width || canvas.height !== renderSize.height) {
+      canvas.width = renderSize.width;
+      canvas.height = renderSize.height;
     }
 
-    const splitRatio = project.viewMode === 'split' ? project.splitPosition / 100 : undefined;
+    const splitRatio = viewMode === 'split' ? project.splitPosition / 100 : undefined;
     renderValueStudyOnCanvas(
       img,
       canvas,
       project.layers,
-      project.viewMode === 'split' ? 'valueStudy' : project.viewMode,
-      splitRatio
+      viewMode === 'split' ? 'valueStudy' : viewMode,
+      splitRatio,
+      project.isolation,
+      project.ghostOpacity
     );
-  }, [loadedImage, project.imageWidth, project.imageHeight, project.layers, project.viewMode, project.splitPosition]);
+  }, [loadedImage, renderSize, project.layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity]);
 
   useEffect(() => {
     renderScene();
   }, [renderScene]);
+
+  // Edges view: post the display-capped Reference Image to the backend contour
+  // extractor and paint the result. Cached per image so re-entering the view or
+  // touching unrelated project state (layers, isolation, ...) doesn't re-fetch.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const img = loadedImage;
+    if (project.viewMode !== 'edges' || !canvas || !img || !project.imageSrc) return;
+
+    if (canvas.width !== renderSize.width || canvas.height !== renderSize.height) {
+      canvas.width = renderSize.width;
+      canvas.height = renderSize.height;
+    }
+
+    const drawBitmap = (bitmap: HTMLImageElement) => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    };
+
+    const cached = edgesCacheRef.current;
+    if (cached && cached.src === project.imageSrc) {
+      setEdgesState({ status: 'idle' });
+      drawBitmap(cached.bitmap);
+      return;
+    }
+
+    let cancelled = false;
+    setEdgesState({ status: 'loading' });
+    // Clear rather than leave the previous view's pixels sitting under the loading overlay.
+    canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+
+    fetchEdgeContours(img, renderSize)
+      .then((blob) => {
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        const bitmap = new Image();
+        bitmap.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          if (cancelled) return;
+          edgesCacheRef.current = { src: project.imageSrc as string, bitmap };
+          setEdgesState({ status: 'idle' });
+          drawBitmap(bitmap);
+        };
+        bitmap.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          if (cancelled) return;
+          setEdgesState({ status: 'error', message: 'Received an unreadable contour image' });
+        };
+        bitmap.src = objectUrl;
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setEdgesState({
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Failed to extract contours',
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project.viewMode, project.imageSrc, loadedImage, renderSize, edgesRetryTick]);
 
   // Handle Drag and Drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -386,7 +474,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       {/* Main Drawing Canvas when Image is Loaded */}
       {project.imageSrc ? (
         <div
-          className="relative shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform duration-75 origin-center rounded-lg overflow-hidden border border-studio-800/80"
+          className="relative shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform duration-75 origin-center rounded-lg overflow-hidden ring-1 ring-studio-800/80"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             width: project.imageWidth || 600,
@@ -395,10 +483,32 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         >
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 block rounded"
-            width={project.imageWidth || 600}
-            height={project.imageHeight || 800}
+            className="absolute inset-0 block rounded w-full h-full"
+            width={renderSize.width}
+            height={renderSize.height}
           />
+
+          {/* Edges View: Loading / Error States */}
+          {project.viewMode === 'edges' && edgesState.status === 'loading' && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-studio-950/60 backdrop-blur-sm">
+              <Loader2 className="w-8 h-8 text-studio-accent animate-spin" />
+              <span className="text-xs font-semibold text-slate-200">Extracting contours…</span>
+            </div>
+          )}
+          {project.viewMode === 'edges' && edgesState.status === 'error' && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center">
+              <AlertTriangle className="w-8 h-8 text-rose-400" />
+              <span className="text-sm font-bold text-slate-100">Couldn't extract contours</span>
+              <span className="text-xs text-slate-400 max-w-xs">{edgesState.message}</span>
+              <button
+                onClick={() => setEdgesRetryTick((t) => t + 1)}
+                className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent text-slate-950 text-xs font-bold hover:brightness-110 transition-all"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Retry
+              </button>
+            </div>
+          )}
 
           {/* Split Screen Slider Bar */}
           {project.viewMode === 'split' && (
