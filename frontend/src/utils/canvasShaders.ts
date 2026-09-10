@@ -90,33 +90,3 @@ export function renderValueStudyOnCanvas(
     ctx.restore();
   }
 }
-
-/**
- * Calculates a 256-bin luminance histogram of an image
- */
-export function computeImageHistogram(img: HTMLImageElement | HTMLCanvasElement): number[] {
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.min(400, img.width || 400);
-  canvas.height = Math.min(400, img.height || 400);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return new Array(256).fill(0);
-
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  try {
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    const hist = new Array(256).fill(0);
-
-    for (let i = 0; i < data.length; i += 4) {
-      const lum = Math.round(getLuminance(data[i], data[i + 1], data[i + 2]));
-      hist[lum] = (hist[lum] || 0) + 1;
-    }
-
-    // Normalize to 0..100
-    const max = Math.max(...hist, 1);
-    return hist.map(v => Math.round((v / max) * 100));
-  } catch (err) {
-    // Return standard bell curve fallback histogram if tainted
-    return new Array(256).fill(0).map((_, i) => Math.round(100 * Math.exp(-Math.pow((i - 128) / 60, 2))));
-  }
-}

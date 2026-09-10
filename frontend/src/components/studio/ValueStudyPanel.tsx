@@ -4,12 +4,28 @@ import React from 'react';
 import type { ValueLayer, ProjectState, PencilHardness, IsolationTarget } from '../../types/studio';
 import { generateDefaultValueLayers, PENCIL_DATABASE } from '../../utils/pencilGrades';
 import { VALUE_FAMILIES, layersInFamily } from '../../utils/tonalDecision';
-import { Layers, Eye, EyeOff, SlidersHorizontal, Focus } from 'lucide-react';
+import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ValueStudyPanelProps {
   project: ProjectState;
   onUpdateProject: (updater: (prev: ProjectState) => ProjectState) => void;
+  onRetryHistogram?: () => void;
 }
+
+// Builds a filled area path from the 256-bin luminance histogram (0-100 normalized).
+const histogramAreaPath = (bins: number[]): string => {
+  if (bins.length === 0) return '';
+  const w = 256;
+  const h = 40;
+  const step = w / bins.length;
+  let d = `M0,${h}`;
+  bins.forEach((v, i) => {
+    const x = i * step;
+    const y = h - (Math.max(0, Math.min(100, v)) / 100) * h;
+    d += ` L${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  return `${d} L${w},${h} Z`;
+};
 
 const PENCIL_OPTIONS: PencilHardness[] = [
   'White_Chalk', '9H', '6H', '4H', '2H', 'H', 'F', 'HB', 'B', '2B', '3B', '4B', '5B', '6B', '8B', '9B', 'Charcoal'
@@ -18,8 +34,9 @@ const PENCIL_OPTIONS: PencilHardness[] = [
 export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   project,
   onUpdateProject,
+  onRetryHistogram,
 }) => {
-  const { layers, numValueLayers, viewMode, isolation, ghostOpacity } = project;
+  const { layers, numValueLayers, viewMode, isolation, ghostOpacity, histogram } = project;
 
   const handleLevelCountChange = (count: number) => {
     onUpdateProject(prev => ({
@@ -107,6 +124,73 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           Edges
         </button>
       </div>
+
+      {project.imageSrc && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between text-slate-400">
+            <span className="flex items-center gap-1">
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Luminance Histogram</span>
+            </span>
+          </div>
+
+          {histogram.status === 'loading' && (
+            <div className="flex items-center gap-2 h-10 text-slate-500">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Measuring photograph…</span>
+            </div>
+          )}
+
+          {histogram.status === 'error' && (
+            <div className="flex items-center justify-between gap-2 h-10 text-rose-400">
+              <span className="flex items-center gap-1.5 truncate">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{histogram.message}</span>
+              </span>
+              {onRetryHistogram && (
+                <button
+                  onClick={onRetryHistogram}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 font-semibold shrink-0"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+
+          {histogram.status === 'ready' && (
+            <div className="flex flex-col gap-1">
+              <svg viewBox="0 0 256 40" preserveAspectRatio="none" className="w-full h-10 rounded bg-studio-950 border border-studio-800">
+                <path d={histogramAreaPath(histogram.data.histogram)} className="fill-studio-accent/60" />
+                <line
+                  x1={histogram.data.deepDarkThreshold}
+                  x2={histogram.data.deepDarkThreshold}
+                  y1="0"
+                  y2="40"
+                  stroke="#f59e0b"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <line
+                  x1={histogram.data.highlightThreshold}
+                  x2={histogram.data.highlightThreshold}
+                  y1="0"
+                  y2="40"
+                  stroke="#38bdf8"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+              <div className="flex justify-between text-[10px] font-mono">
+                <span className="text-amber-400">Deep Dark ≤ {histogram.data.deepDarkThreshold}</span>
+                <span className="text-slate-500">Median {histogram.data.medianLuminance}</span>
+                <span className="text-studio-accent">Highlight ≥ {histogram.data.highlightThreshold}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between text-slate-400">

@@ -1,4 +1,5 @@
 import type { RenderSize } from './renderScale';
+import type { HistogramStats } from '../types/studio';
 
 /**
  * Re-draws the source image at the given (display-capped) size and encodes it as PNG.
@@ -48,4 +49,31 @@ export async function fetchEdgeContours(
   }
 
   return res.blob();
+}
+
+/**
+ * Posts the display-capped Reference Image to the luminance-histogram endpoint and
+ * returns the authoritative histogram and percentile thresholds measured from it.
+ */
+export async function fetchHistogram(
+  image: HTMLImageElement | HTMLCanvasElement,
+  size: RenderSize,
+): Promise<HistogramStats> {
+  const capped = await toDisplayCappedBlob(image, size);
+
+  const form = new FormData();
+  form.append('file', capped, 'reference.png');
+
+  let res: Response;
+  try {
+    res = await fetch('/api/cv/histogram', { method: 'POST', body: form });
+  } catch {
+    throw new Error('Could not reach the analysis backend');
+  }
+
+  if (!res.ok) {
+    throw new Error(`Histogram analysis failed (${res.status})`);
+  }
+
+  return res.json();
 }
