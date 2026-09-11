@@ -76,7 +76,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 select-none cursor-crosshair"
+      className="absolute inset-0 select-none cursor-crosshair pointer-events-none"
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
@@ -136,7 +136,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
                L ${methodState.loomis.center.x + methodState.loomis.radius * 0.8} ${methodState.loomis.browLineY}`}
           />
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5">
+            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
               <circle
                 cx={methodState.loomis.center.x}
                 cy={methodState.loomis.center.y}
@@ -206,7 +206,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
                Q ${methodState.reilly.chinBottom.x + 30} ${methodState.reilly.chinBottom.y + 60} ${methodState.reilly.chinBottom.x + 10} ${methodState.reilly.chinBottom.y + 100}`}
           />
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5">
+            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
               {Object.entries(methodState.reilly).map(([key, pt]) => (
                 <circle
                   key={key}
@@ -257,7 +257,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
             />
           ))}
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5">
+            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
               {methodState.bargue.points.map((pt) => (
                 <circle
                   key={pt.id}
