@@ -76,7 +76,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 select-none cursor-crosshair pointer-events-none"
+      className="absolute inset-0 select-none pointer-events-none"
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
