@@ -308,6 +308,10 @@ export default function StudioHomePage() {
 
   const handleStageChange = (newStage: AtelierStage) => {
     setProject((prev) => {
+      if (prev.isSandbox) {
+        return { ...prev, stage: newStage };
+      }
+
       let nextViewMode = prev.viewMode;
       let nextActiveMethod = prev.methods.activeMethod;
       let nextGridEnabled = prev.grid.enabled;

@@ -30,6 +30,10 @@ _Avoid_: Layer group, selection, tonal group
 To restrict the canvas to a single Tonal Layer or Value Family, rendering it as a flat mask over a faint underlay of the Reference Image.
 _Avoid_: Solo, mute, focus
 
+**Cut Point**:
+One of the N−1 shared boundary values between N adjacent Tonal Layers in a Value Study. Moving a Cut Point moves both neighboring Tonal Layers' shared edge at once, so overlapping or gapped Tonal Layers are impossible to construct.
+_Avoid_: Threshold slider, band edge, max slider
+
 ### Physical transfer
 
 **Pencil Grade Mapping**:
@@ -39,6 +43,14 @@ _Avoid_: Pencil tool, brush size, shading filter
 **Physical Caliper**:
 The interactive calibration mechanism that maps display pixels to physical real-world units (mm, cm, inches) via a standard physical reference or ruler. Sole owner of the word "calibration" in this project.
 _Avoid_: Screen ruler, zoom tool
+
+**Paper Mapping**:
+The declared relationship between the Reference Image and a physical paper size (e.g., "this photo fills A4 width"), used to compute Transfer Grid spacing in image space. Independent of Physical Caliper: Physical Caliper's screen calibration only governs the optional true-size on-screen view, never grid spacing or export dimensions.
+_Avoid_: Scale, calibration, 1:1, print size
+
+**Transfer Grid**:
+The overlay of evenly spaced cells drawn across the Reference Image at a declared physical size, sized in image space from the Paper Mapping and used to transcribe proportions onto the physical page square by square.
+_Avoid_: Grid overlay, graph paper, squares
 
 **Harmonic Armature**:
 The geometric network of diagonals, reciprocals, and grid subdivisions across the canvas used for composition, alignment, and proportional transfer.
@@ -58,6 +70,10 @@ _Avoid_: Face calibration, anchor calibration, fitting
 The automated assist within Anchor Placement that proposes an initial anchor position from detected facial reference points, falling back to declared proportional construction when no face is found.
 _Avoid_: Face detection, auto-align
 
+**Declared Source**:
+A visible statement on any measured or estimated value — Landmark Auto-Snap's anchors, a Value Study's Cut Points, and future Drawing Capture alignment — of whether it came from real detection/measurement or a declared fallback construction. Never left ambiguous or silently substituted for one another.
+_Avoid_: Confidence score, source badge, silent fallback
+
 **Teaching Mode**:
 An interactive pedagogical guide embedded within each drawing method that explains anatomical landmarks, proportion rules, and step-by-step drafting execution.
 _Avoid_: Tutorial, help menu, tooltip
@@ -65,6 +81,12 @@ _Avoid_: Tutorial, help menu, tooltip
 **Atelier Workflow**:
 The structured 5-stage drafting progression (Calibration & Envelope -> Construction & Proportion -> Shadow Block-In -> Halftone Modeling -> Deep Accents) guiding the artist from general forms to fine details.
 _Avoid_: Wizard, drawing pipeline, drawing steps
+
+### Comparison
+
+**Drawing Capture**:
+A photograph of the artist's physical drawing-in-progress, aligned to the Reference Image via a small number of matched points, enabling direct comparison and measurement of the drawing against the Reference Image. Not yet implemented.
+_Avoid_: Progress photo, submission, upload
 
 ### Configuration
 
@@ -75,3 +97,17 @@ _Avoid_: App theme, project template
 **Storage Adapter**:
 The storage abstraction interface responsible for persisting image binaries and project state across local disk, PostgreSQL metadata, or external storage.
 _Avoid_: File uploader, image saver
+
+### Onboarding & presets
+
+**Sandbox Mode**:
+The opt-out state in which the artist controls View Mode, Drawing Method, and Grid directly, rather than having the Atelier Workflow set them per stage. Mutually exclusive with active stage progression.
+_Avoid_: Free mode, manual mode, advanced mode
+
+**Workflow Preset**:
+A curated bundle of View Mode, Value Study configuration, Grid, Drawing Method, and Medium Preset, offered as a starting point immediately after uploading a Reference Image. Selecting one switches the artist into Sandbox Mode, since a Workflow Preset and the Atelier Workflow cannot both own the same settings at once.
+_Avoid_: Template, quick-start, style
+
+**Auto-Suggest Chip**:
+A dismissible recommendation of one Workflow Preset, shown after upload and derived from the Reference Image's existing histogram/luminance analysis rather than freeform interpretation. Proposes; never applies itself.
+_Avoid_: AI suggestion, smart recommendation, auto-apply
