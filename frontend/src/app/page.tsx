@@ -13,6 +13,7 @@ import { MethodSelectorPanel } from '@/components/studio/MethodSelectorPanel';
 import { PencilGradePanel } from '@/components/studio/PencilGradePanel';
 import { MediumSelector } from '@/components/studio/MediumSelector';
 import { PhysicalCaliperModal } from '@/components/studio/PhysicalCaliperModal';
+import { PaperMappingModal } from '@/components/studio/PaperMappingModal';
 import { TeachingModeDrawer } from '@/components/studio/TeachingModeDrawer';
 import { ExportModal } from '@/components/studio/ExportModal';
 import {
@@ -56,10 +57,13 @@ const INITIAL_PROJECT_STATE: ProjectState = {
     isCalibrated: false,
     screenDpi: 96,
     pixelsPerMm: 3.78,
+  },
+  paperMapping: {
+    isDeclared: false,
     paperPreset: 'A4',
     paperWidthMm: 210,
     paperHeightMm: 297,
-    paperOrientation: 'portrait',
+    fillMode: 'fillWidth',
   },
   methods: {
     activeMethod: 'loomis',
@@ -128,6 +132,7 @@ export default function StudioHomePage() {
   const [activeTab, setActiveTab] = useState<ActiveSidebarTab>('values');
 
   const [isCaliperOpen, setIsCaliperOpen] = useState<boolean>(false);
+  const [isPaperMappingOpen, setIsPaperMappingOpen] = useState<boolean>(false);
   const [isTeachingOpen, setIsTeachingOpen] = useState<boolean>(false);
   const [teachingMethod, setTeachingMethod] = useState<DrawingMethodType>('loomis');
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
@@ -227,17 +232,19 @@ export default function StudioHomePage() {
     };
   }, [project.imageSrc, loadedImageEl, landmarksRetryTick]);
 
-  // Restore calibration and grid preferences from localStorage on mount
+  // Restore calibration, grid, and paper mapping preferences from localStorage on mount
   useEffect(() => {
     try {
       const savedCalib = localStorage.getItem('sketchstudio_calibration_v1');
       const savedGrid = localStorage.getItem('sketchstudio_grid_v1');
+      const savedPaperMapping = localStorage.getItem('sketchstudio_paper_mapping_v1');
 
-      if (savedCalib || savedGrid) {
+      if (savedCalib || savedGrid || savedPaperMapping) {
         setProject((prev) => ({
           ...prev,
           calibration: savedCalib ? JSON.parse(savedCalib) : prev.calibration,
           grid: savedGrid ? { ...prev.grid, ...JSON.parse(savedGrid) } : prev.grid,
+          paperMapping: savedPaperMapping ? JSON.parse(savedPaperMapping) : prev.paperMapping,
         }));
       }
     } catch (e) {
@@ -266,6 +273,16 @@ export default function StudioHomePage() {
       }
       return { ...prev, grid: newGrid };
     });
+  };
+
+  // Persist Paper Mapping when declared
+  const handleSavePaperMapping = (mapping: typeof INITIAL_PROJECT_STATE.paperMapping) => {
+    try {
+      localStorage.setItem('sketchstudio_paper_mapping_v1', JSON.stringify(mapping));
+    } catch (e) {
+      console.warn('Failed to persist Paper Mapping', e);
+    }
+    setProject((prev) => ({ ...prev, paperMapping: mapping }));
   };
 
   // Reliable file loading for local uploads & drag-drop
@@ -537,9 +554,9 @@ export default function StudioHomePage() {
             {activeTab === 'grid' && (
               <GridConfigPanel
                 grid={project.grid}
-                calibration={project.calibration}
+                paperMapping={project.paperMapping}
                 onChange={handleUpdateGrid}
-                onOpenCalibration={() => setIsCaliperOpen(true)}
+                onOpenPaperMapping={() => setIsPaperMappingOpen(true)}
               />
             )}
 
@@ -576,6 +593,13 @@ export default function StudioHomePage() {
         calibration={project.calibration}
         onClose={() => setIsCaliperOpen(false)}
         onSaveCalibration={handleSaveCalibration}
+      />
+
+      <PaperMappingModal
+        isOpen={isPaperMappingOpen}
+        paperMapping={project.paperMapping}
+        onClose={() => setIsPaperMappingOpen(false)}
+        onSavePaperMapping={handleSavePaperMapping}
       />
 
       <TeachingModeDrawer

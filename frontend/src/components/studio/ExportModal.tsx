@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import type { ProjectState } from '../../types/studio';
-import { PAPER_PRESETS, mmToPx } from '../../utils/physicalScale';
-import { X, Download, Printer, FileText } from 'lucide-react';
+import { fetchPdfGrid } from '../../utils/exportsApi';
+import { X, Download, Printer, FileText, Loader2 } from 'lucide-react';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -17,70 +17,30 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onClose,
 }) => {
   const [exportType, setExportType] = useState<'image' | 'printableGrid' | 'studyGuide'>('printableGrid');
+  const [downloadState, setDownloadState] = useState<
+    { status: 'idle' } | { status: 'loading' } | { status: 'error'; message: string }
+  >({ status: 'idle' });
 
   if (!isOpen) return null;
 
-  const handleDownloadBlankGrid = () => {
-    const paper = PAPER_PRESETS[project.calibration.paperPreset] || PAPER_PRESETS.A4;
-    const dpi = 300;
-    const widthPx = Math.round(mmToPx(paper.widthMm, dpi));
-    const heightPx = Math.round(mmToPx(paper.heightMm, dpi));
-
-    const canvas = document.createElement('canvas');
-    canvas.width = widthPx;
-    canvas.height = heightPx;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, widthPx, heightPx);
-
-    const marginPx = Math.round(mmToPx(10, dpi));
-    const cellPx = Math.round(mmToPx(project.grid.cellSizeMm, dpi));
-
-    const gridW = widthPx - marginPx * 2;
-    const gridH = heightPx - marginPx * 2;
-    const cols = Math.floor(gridW / cellPx);
-    const rows = Math.floor(gridH / cellPx);
-
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 2;
-    ctx.font = 'bold 24px monospace';
-    ctx.fillStyle = '#666666';
-
-    for (let c = 0; c <= cols; c++) {
-      const x = marginPx + c * cellPx;
-      ctx.beginPath();
-      ctx.moveTo(x, marginPx);
-      ctx.lineTo(x, marginPx + rows * cellPx);
-      ctx.stroke();
-
-      if (c < cols && project.grid.showLabels) {
-        const letter = String.fromCharCode(65 + (c % 26));
-        ctx.fillText(letter, x + 8, marginPx - 8);
-      }
+  const handleDownloadPdfGrid = async () => {
+    if (!project.paperMapping.isDeclared) return;
+    setDownloadState({ status: 'loading' });
+    try {
+      const blob = await fetchPdfGrid(project.paperMapping, project.grid.cellSizeMm, project.grid.showLabels);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `Printable-Grid-${project.paperMapping.paperPreset}-${project.grid.cellSizeMm}mm.pdf`;
+      link.href = objectUrl;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+      setDownloadState({ status: 'idle' });
+    } catch (err) {
+      setDownloadState({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'PDF grid export failed',
+      });
     }
-
-    for (let r = 0; r <= rows; r++) {
-      const y = marginPx + r * cellPx;
-      ctx.beginPath();
-      ctx.moveTo(marginPx, y);
-      ctx.lineTo(marginPx + cols * cellPx, y);
-      ctx.stroke();
-
-      if (r < rows && project.grid.showLabels) {
-        ctx.fillText(`${r + 1}`, marginPx - 30, y + 28);
-      }
-    }
-
-    ctx.font = '18px sans-serif';
-    ctx.fillStyle = '#888888';
-    ctx.fillText(`Sketch Studio Physical Grid - ${paper.name} (${project.grid.cellSizeMm}mm Cells)`, marginPx, heightPx - marginPx / 2);
-
-    const link = document.createElement('a');
-    link.download = `Printable-Grid-${paper.name}-${project.grid.cellSizeMm}mm.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
   };
 
   return (
@@ -118,7 +78,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <div>
                 <span className="font-bold text-slate-100 block">Printable Blank Grid</span>
                 <span className="text-[10px] text-slate-400">
-                  Exact 1:1 scale blank grid template on {project.calibration.paperPreset} paper.
+                  {project.paperMapping.isDeclared
+                    ? `Vector PDF grid template on ${project.paperMapping.paperPreset} paper.`
+                    : 'Requires a declared Paper Mapping.'}
                 </span>
               </div>
             </button>
@@ -148,7 +110,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <span className="font-semibold text-studio-accent">Selected Export Details:</span>
             <div className="flex items-center justify-between">
               <span>Target Paper Size:</span>
-              <span className="font-mono font-bold text-slate-100">{project.calibration.paperPreset}</span>
+              <span className="font-mono font-bold text-slate-100">
+                {project.paperMapping.isDeclared ? project.paperMapping.paperPreset : 'Not declared'}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span>Grid Cell Physical Dimension:</span>
@@ -161,17 +125,30 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
         </div>
 
-        <div className="p-4 border-t border-studio-800 bg-studio-950/80 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-slate-400 hover:text-white font-medium">
-            Cancel
-          </button>
-          <button
-            onClick={handleDownloadBlankGrid}
-            className="px-5 py-2 rounded-xl bg-studio-accent text-slate-950 font-bold shadow-lg hover:bg-studio-accent/90 transition-all flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download High-Res (300 DPI)</span>
-          </button>
+        <div className="p-4 border-t border-studio-800 bg-studio-950/80 flex items-center justify-between gap-2">
+          {downloadState.status === 'error' ? (
+            <span className="text-[10px] text-rose-400 max-w-xs">{downloadState.message}</span>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-slate-400 hover:text-white font-medium">
+              Cancel
+            </button>
+            <button
+              onClick={handleDownloadPdfGrid}
+              disabled={!project.paperMapping.isDeclared || downloadState.status === 'loading'}
+              title={project.paperMapping.isDeclared ? undefined : 'Declare a Paper Mapping first'}
+              className="px-5 py-2 rounded-xl bg-studio-accent text-slate-950 font-bold shadow-lg hover:bg-studio-accent/90 transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-studio-accent"
+            >
+              {downloadState.status === 'loading' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{downloadState.status === 'error' ? 'Retry Download' : 'Download PDF Grid'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,27 +1,24 @@
 import io
 from fastapi import APIRouter, Response, Query
-from reportlab.lib.pagesizes import A4, A3, letter
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 router = APIRouter(prefix="/exports", tags=["Exports"])
 
-PAGE_SIZES = {
-    "A4": A4,
-    "A3": A3,
-    "Letter": letter,
-}
-
 @router.get("/pdf-grid")
 async def generate_pdf_grid(
-    paper_size: str = Query("A4", pattern="^(A4|A3|Letter)$"),
+    width_mm: float = Query(210.0, ge=50.0, le=1200.0),
+    height_mm: float = Query(297.0, ge=50.0, le=1200.0),
     cell_size_mm: float = Query(15.0, ge=5.0, le=50.0),
     show_labels: bool = Query(True),
+    paper_label: str = Query("A4", pattern=r"^[A-Za-z0-9 _\-×]{1,32}$"),
 ):
-    """Generate a vector printable PDF blank grid template matched to physical paper size."""
-    page_dimensions = PAGE_SIZES.get(paper_size, A4)
+    """Generate a vector printable PDF blank grid template sized from the artist's
+    declared Paper Mapping (width/height in mm) — the same source of truth the
+    on-screen Transfer Grid uses, per ADR-0008."""
+    page_dimensions = (width_mm * mm, height_mm * mm)
     buffer = io.BytesIO()
-    
+
     p = canvas.Canvas(buffer, pagesize=page_dimensions)
     width_pt, height_pt = page_dimensions
 
@@ -61,7 +58,7 @@ async def generate_pdf_grid(
     # Watermark Footer
     p.setFont("Helvetica", 7)
     p.setFillColorRGB(0.5, 0.5, 0.5)
-    p.drawString(margin_pt, 4 * mm, f"Sketch Studio Pro • Physical Grid ({cell_size_mm}mm cells) on {paper_size}")
+    p.drawString(margin_pt, 4 * mm, f"Sketch Studio Pro • Physical Grid ({cell_size_mm}mm cells) on {paper_label}")
 
     p.showPage()
     p.save()
@@ -70,5 +67,5 @@ async def generate_pdf_grid(
     return Response(
         content=buffer.getvalue(),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=SketchGrid_{paper_size}_{int(cell_size_mm)}mm.pdf"}
+        headers={"Content-Disposition": f"attachment; filename=SketchGrid_{paper_label}_{int(cell_size_mm)}mm.pdf"}
     )
