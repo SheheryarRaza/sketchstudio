@@ -3,9 +3,9 @@
 import React from 'react';
 import type { ValueLayerMeta, ProjectState, PencilHardness, IsolationTarget } from '../../types/studio';
 import { generateDefaultLayerMeta, PENCIL_DATABASE } from '../../utils/pencilGrades';
-import { buildValueLayers, generateDefaultCutPoints, moveCutPoint } from '../../utils/cutPoints';
-import { VALUE_FAMILIES, layersInFamily } from '../../utils/tonalDecision';
-import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { buildValueLayers, generateCutPointsFromHistogram, generateDefaultCutPoints, moveCutPoint } from '../../utils/cutPoints';
+import { buildValueFamilies, layersInFamily } from '../../utils/tonalDecision';
+import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw, Wand2 } from 'lucide-react';
 
 interface ValueStudyPanelProps {
   project: ProjectState;
@@ -37,8 +37,9 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   onUpdateProject,
   onRetryHistogram,
 }) => {
-  const { layerMeta, cutPoints, numValueLayers, viewMode, isolation, ghostOpacity, histogram } = project;
+  const { layerMeta, cutPoints, numValueLayers, viewMode, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource } = project;
   const layers = buildValueLayers(layerMeta, cutPoints);
+  const valueFamilies = buildValueFamilies(valueFamilyFloors);
 
   const handleLevelCountChange = (count: number) => {
     onUpdateProject(prev => ({
@@ -46,6 +47,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
       numValueLayers: count,
       layerMeta: generateDefaultLayerMeta(count),
       cutPoints: generateDefaultCutPoints(count),
+      cutPointSource: 'default',
       // Layer ids encode the layer count, so a layer isolation cannot outlive a
       // recount. A Value Family one can, being defined by tonal range.
       isolation: prev.isolation.kind === 'layer' ? { kind: 'none' } : prev.isolation,
@@ -61,7 +63,32 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   };
 
   const handleCutPointChange = (index: number, value: number) => {
-    onUpdateProject(prev => ({ ...prev, cutPoints: moveCutPoint(prev.cutPoints, index, value) }));
+    onUpdateProject(prev => ({
+      ...prev,
+      cutPoints: moveCutPoint(prev.cutPoints, index, value),
+      cutPointSource: 'manual',
+    }));
+  };
+
+  // Explicit, artist-triggered re-seed — never runs automatically on upload, so
+  // it never overwrites Cut Points the artist has already dragged by hand.
+  const handleSeedFromHistogram = () => {
+    onUpdateProject(prev => {
+      if (prev.histogram.status !== 'ready') return prev;
+      const seededCutPoints = generateCutPointsFromHistogram(prev.numValueLayers, prev.histogram.data);
+      return {
+        ...prev,
+        cutPoints: seededCutPoints,
+        // Read back off the generated Cut Points, not the raw histogram
+        // thresholds, so the Value Family floors can never drift from the
+        // Cut Points actually in effect after clamping.
+        valueFamilyFloors: {
+          lightFloor: seededCutPoints[0],
+          halftoneFloor: seededCutPoints[seededCutPoints.length - 1],
+        },
+        cutPointSource: 'seeded',
+      };
+    });
   };
 
   const targetsSame = (a: IsolationTarget, b: IsolationTarget): boolean => {
@@ -194,6 +221,14 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 <span className="text-slate-500">Median {histogram.data.medianLuminance}</span>
                 <span className="text-studio-accent">Highlight ≥ {histogram.data.highlightThreshold}</span>
               </div>
+              <button
+                onClick={handleSeedFromHistogram}
+                className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-studio-850 hover:bg-studio-800 text-slate-200 font-semibold"
+                title="Set Cut Points from this photo's measured dark and light points, overwriting any manual adjustments"
+              >
+                <Wand2 className="w-3 h-3" />
+                Seed Cut Points from Photo
+              </button>
             </div>
           )}
         </div>
@@ -222,6 +257,18 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
             </button>
           ))}
         </div>
+        {cutPointSource === 'seeded' && (
+          <span className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+            <Wand2 className="w-3 h-3" />
+            Cut Points seeded from this photo
+          </span>
+        )}
+        {cutPointSource === 'manual' && (
+          <span className="flex items-center gap-1.5 text-[10px] text-studio-gold">
+            <SlidersHorizontal className="w-3 h-3" />
+            Cut Points manually adjusted
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -241,8 +288,8 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
         </div>
 
         <div className="grid grid-cols-3 gap-1">
-          {VALUE_FAMILIES.map((family) => {
-            const count = layersInFamily(layers, family.id).length;
+          {valueFamilies.map((family) => {
+            const count = layersInFamily(layers, family.id, valueFamilyFloors).length;
             const target: IsolationTarget = { kind: 'family', family: family.id };
             const active = targetsSame(isolation, target);
             return (

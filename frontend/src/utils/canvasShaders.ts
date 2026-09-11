@@ -1,5 +1,5 @@
-import type { IsolationTarget, ValueLayer } from '../types/studio';
-import { createTonalPixel, decideTonalPixel, isolatedLayerIds } from './tonalDecision';
+import type { IsolationTarget, ValueFamilyFloors, ValueLayer } from '../types/studio';
+import { createTonalPixel, decideTonalPixel, DEFAULT_VALUE_FAMILY_FLOORS, isolatedLayerIds } from './tonalDecision';
 
 /**
  * Calculates perceived luminance using Rec. 709 HDTV ITU standard
@@ -19,6 +19,7 @@ export function renderValueStudyOnCanvas(
   splitRatio?: number, // if split view (0 to 1)
   isolation: IsolationTarget = { kind: 'none' },
   ghostOpacity: number = 0.18,
+  familyFloors: ValueFamilyFloors = DEFAULT_VALUE_FAMILY_FLOORS,
 ) {
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
@@ -46,7 +47,7 @@ export function renderValueStudyOnCanvas(
     const outputData = ctx.createImageData(width, height);
     const out = outputData.data;
 
-    const isolated = isolatedLayerIds(layers, isolation);
+    const isolated = isolatedLayerIds(layers, isolation, familyFloors);
     const decided = createTonalPixel();
     const renderMode = viewMode === 'posterized' ? 'posterized' : 'valueStudy';
 

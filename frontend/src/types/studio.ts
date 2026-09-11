@@ -24,6 +24,14 @@ export type PencilHardness =
 
 export type ValueFamily = 'shadows' | 'halftones' | 'lights';
 
+// The two luminance boundaries that split Tonal Layers into Value Families
+// (shadows/halftones/lights), independent of Tonal Layer count. Seeded per
+// Reference Image from its measured histogram rather than fixed for every photo.
+export interface ValueFamilyFloors {
+  halftoneFloor: number; // boundary between shadows and halftones
+  lightFloor: number; // boundary between halftones and lights
+}
+
 export type TonalRenderMode = 'valueStudy' | 'posterized';
 
 export interface HistogramStats {
@@ -43,6 +51,11 @@ export type HistogramAnalysisState =
   | { status: 'error'; message: string };
 
 export type LandmarkSource = 'detected' | 'fallback';
+
+// Declared Source for the current Cut Points: whether they're the photo-measured
+// seed, a hand-adjusted drag, or the plain evenly-spaced default — never left
+// ambiguous, per this project's Declared Source convention.
+export type CutPointSource = 'default' | 'seeded' | 'manual';
 
 export interface LandmarkStats {
   source: LandmarkSource;
@@ -199,6 +212,8 @@ export interface ProjectState {
   splitPosition: number; // 0-100 percentage
   isolation: IsolationTarget;
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
+  valueFamilyFloors: ValueFamilyFloors;
+  cutPointSource: CutPointSource;
   histogram: HistogramAnalysisState;
   landmarks: LandmarkAnalysisState;
 }
