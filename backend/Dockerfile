@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # Install system dependencies for OpenCV and graphics
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,10 +17,10 @@ ENV UV_COMPILE_BYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Copy dependency definition
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies using uv sync
-RUN uv sync --frozen --no-install-project || uv sync --no-install-project
+RUN uv sync --frozen --no-install-project
 
 # Copy application source code
 COPY . .
