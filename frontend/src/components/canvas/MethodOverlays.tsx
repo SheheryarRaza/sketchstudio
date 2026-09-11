@@ -58,7 +58,9 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
       const bargue = { ...methodState.bargue };
       const pointIndex = bargue.points.findIndex(p => p.id === draggingPoint);
       if (pointIndex !== -1) {
-        bargue.points[pointIndex] = { ...bargue.points[pointIndex], x, y };
+        const points = [...bargue.points];
+        points[pointIndex] = { ...points[pointIndex], x, y };
+        bargue.points = points;
         onChange({ ...methodState, bargue });
       }
     }
