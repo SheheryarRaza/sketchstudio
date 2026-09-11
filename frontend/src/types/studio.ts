@@ -64,9 +64,21 @@ export type IsolationTarget =
 export interface ValueLayer {
   id: string;
   name: string;
-  minThreshold: number; // 0 - 255
-  maxThreshold: number; // 0 - 255
+  minThreshold: number; // 0 - 255, derived from this layer's bounding Cut Points
+  maxThreshold: number; // 0 - 255, derived from this layer's bounding Cut Points
   color: string;
+  pencilGrade: PencilHardness;
+  pencilDescription: string;
+  visible: boolean;
+  opacity: number;
+}
+
+// The editable identity/style of a Tonal Layer, independent of its threshold
+// range. Thresholds are never stored here — they're derived from cutPoints via
+// buildValueLayers, so overlapping or gapped Tonal Layers can't be constructed.
+export interface ValueLayerMeta {
+  id: string;
+  name: string;
   pencilGrade: PencilHardness;
   pencilDescription: string;
   visible: boolean;
@@ -177,7 +189,8 @@ export interface ProjectState {
   stage: AtelierStage;
   isSandbox: boolean;
   numValueLayers: number; // 3 to 9
-  layers: ValueLayer[];
+  layerMeta: ValueLayerMeta[];
+  cutPoints: number[]; // N-1 shared boundaries between layerMeta, brightest-to-darkest (descending)
   grid: GridConfig;
   calibration: CalibrationProfile;
   paperMapping: PaperMappingConfig;

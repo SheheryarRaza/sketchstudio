@@ -1,4 +1,4 @@
-import type { PencilHardness, ValueLayer } from '../types/studio';
+import type { PencilHardness, ValueLayerMeta } from '../types/studio';
 
 export interface PencilGradeInfo {
   grade: PencilHardness;
@@ -36,12 +36,11 @@ export const PENCIL_DATABASE: Record<PencilHardness, PencilGradeInfo> = {
 };
 
 /**
- * Generate default N-level value layers (3 to 9 steps)
+ * Generate default N-level Tonal Layer metadata (3 to 9 steps). Threshold
+ * ranges are not part of this — they come from Cut Points via buildValueLayers.
  */
-export function generateDefaultValueLayers(levels: number): ValueLayer[] {
+export function generateDefaultLayerMeta(levels: number): ValueLayerMeta[] {
   const count = Math.max(3, Math.min(9, levels));
-  const layers: ValueLayer[] = [];
-  const stepSize = 255 / count;
 
   const namesByCount: Record<number, string[]> = {
     3: ['Highlights & Lights', 'Midtones', 'Shadows & Darks'],
@@ -66,21 +65,14 @@ export function generateDefaultValueLayers(levels: number): ValueLayer[] {
   const names = namesByCount[count] || namesByCount[5];
   const pencils = pencilByCount[count] || pencilByCount[5];
 
+  const meta: ValueLayerMeta[] = [];
   for (let i = 0; i < count; i++) {
-    const maxThresh = Math.round(255 - (i * stepSize));
-    const minThresh = Math.round(Math.max(0, 255 - ((i + 1) * stepSize)));
     const pencil = pencils[i] || 'HB';
     const pencilInfo = PENCIL_DATABASE[pencil];
 
-    const grayVal = Math.round((minThresh + maxThresh) / 2);
-    const hex = `rgb(${grayVal}, ${grayVal}, ${grayVal})`;
-
-    layers.push({
+    meta.push({
       id: `layer-${count}-${i + 1}`,
       name: names[i] || `Value Step ${i + 1}`,
-      minThreshold: minThresh,
-      maxThreshold: maxThresh,
-      color: hex,
       pencilGrade: pencil,
       pencilDescription: `${pencilInfo.name} - ${pencilInfo.recommendedFor}`,
       visible: true,
@@ -88,5 +80,5 @@ export function generateDefaultValueLayers(levels: number): ValueLayer[] {
     });
   }
 
-  return layers;
+  return meta;
 }

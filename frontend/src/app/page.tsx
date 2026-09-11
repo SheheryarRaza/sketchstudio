@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats, LandmarkStats } from '@/types/studio';
-import { generateDefaultValueLayers } from '@/utils/pencilGrades';
+import { generateDefaultLayerMeta } from '@/utils/pencilGrades';
+import { generateDefaultCutPoints } from '@/utils/cutPoints';
 import { capRenderSize } from '@/utils/renderScale';
 import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace } from '@/utils/analysisApi';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
@@ -39,7 +40,8 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   stage: 1,
   isSandbox: false,
   numValueLayers: 5,
-  layers: generateDefaultValueLayers(5),
+  layerMeta: generateDefaultLayerMeta(5),
+  cutPoints: generateDefaultCutPoints(5),
   grid: {
     enabled: true,
     type: 'squares',

@@ -120,7 +120,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
             <div className="flex items-center justify-between">
               <span>Active Value Layers:</span>
-              <span className="font-mono font-bold text-slate-100">{project.layers.length} Bands</span>
+              <span className="font-mono font-bold text-slate-100">{project.layerMeta.length} Bands</span>
             </div>
           </div>
         </div>

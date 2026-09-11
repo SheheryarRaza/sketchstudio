@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import type { ValueLayer, ProjectState, PencilHardness, IsolationTarget } from '../../types/studio';
-import { generateDefaultValueLayers, PENCIL_DATABASE } from '../../utils/pencilGrades';
+import type { ValueLayerMeta, ProjectState, PencilHardness, IsolationTarget } from '../../types/studio';
+import { generateDefaultLayerMeta, PENCIL_DATABASE } from '../../utils/pencilGrades';
+import { buildValueLayers, generateDefaultCutPoints, moveCutPoint } from '../../utils/cutPoints';
 import { VALUE_FAMILIES, layersInFamily } from '../../utils/tonalDecision';
 import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -36,25 +37,31 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   onUpdateProject,
   onRetryHistogram,
 }) => {
-  const { layers, numValueLayers, viewMode, isolation, ghostOpacity, histogram } = project;
+  const { layerMeta, cutPoints, numValueLayers, viewMode, isolation, ghostOpacity, histogram } = project;
+  const layers = buildValueLayers(layerMeta, cutPoints);
 
   const handleLevelCountChange = (count: number) => {
     onUpdateProject(prev => ({
       ...prev,
       numValueLayers: count,
-      layers: generateDefaultValueLayers(count),
+      layerMeta: generateDefaultLayerMeta(count),
+      cutPoints: generateDefaultCutPoints(count),
       // Layer ids encode the layer count, so a layer isolation cannot outlive a
       // recount. A Value Family one can, being defined by tonal range.
       isolation: prev.isolation.kind === 'layer' ? { kind: 'none' } : prev.isolation,
     }));
   };
 
-  const handleLayerChange = (index: number, updates: Partial<ValueLayer>) => {
+  const handleLayerMetaChange = (index: number, updates: Partial<ValueLayerMeta>) => {
     onUpdateProject(prev => {
-      const updated = [...prev.layers];
+      const updated = [...prev.layerMeta];
       updated[index] = { ...updated[index], ...updates };
-      return { ...prev, layers: updated };
+      return { ...prev, layerMeta: updated };
     });
+  };
+
+  const handleCutPointChange = (index: number, value: number) => {
+    onUpdateProject(prev => ({ ...prev, cutPoints: moveCutPoint(prev.cutPoints, index, value) }));
   };
 
   const targetsSame = (a: IsolationTarget, b: IsolationTarget): boolean => {
@@ -282,8 +289,8 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           const target: IsolationTarget = { kind: 'layer', layerId: layer.id };
           const isolated = targetsSame(isolation, target);
           return (
+            <React.Fragment key={layer.id}>
             <div
-              key={layer.id}
               className={`p-2.5 rounded-xl border transition-all flex flex-col gap-2 ${
                 isolated
                   ? 'bg-studio-850/90 border-studio-accent shadow-md ring-1 ring-studio-accent/30'
@@ -317,7 +324,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                   </button>
 
                   <button
-                    onClick={() => handleLayerChange(idx, { visible: !layer.visible })}
+                    onClick={() => handleLayerMetaChange(idx, { visible: !layer.visible })}
                     disabled={isolation.kind !== 'none'}
                     className="p-1 rounded text-slate-400 hover:text-white hover:bg-studio-800 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
                     title={
@@ -331,31 +338,16 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex-1 flex flex-col gap-0.5">
-                  <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Min: {layer.minThreshold}</span>
-                    <span>Max: {layer.maxThreshold}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="255"
-                    value={layer.maxThreshold}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      handleLayerChange(idx, { maxThreshold: Math.max(val, layer.minThreshold + 1) });
-                    }}
-                    className="w-full h-1 bg-studio-800 rounded-lg cursor-pointer"
-                  />
-                </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>Min: {layer.minThreshold}</span>
+                <span>Max: {layer.maxThreshold}</span>
               </div>
 
               <div className="flex items-center justify-between pt-1 border-t border-studio-800/60">
                 <span className="text-[10px] text-slate-400">Pencil Grade:</span>
                 <select
                   value={layer.pencilGrade}
-                  onChange={(e) => handleLayerChange(idx, { pencilGrade: e.target.value as PencilHardness })}
+                  onChange={(e) => handleLayerMetaChange(idx, { pencilGrade: e.target.value as PencilHardness })}
                   className="bg-studio-800 border border-studio-700 text-studio-accent font-mono font-bold text-[10px] px-2 py-0.5 rounded cursor-pointer"
                 >
                   {PENCIL_OPTIONS.map((p) => (
@@ -366,6 +358,25 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 </select>
               </div>
             </div>
+
+            {idx < layers.length - 1 && (
+              <div className="flex flex-col gap-0.5 px-1">
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                  <span>Cut Point</span>
+                  <span className="text-studio-accent font-bold">{cutPoints[idx]}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="255"
+                  value={cutPoints[idx]}
+                  onChange={(e) => handleCutPointChange(idx, parseInt(e.target.value))}
+                  className="w-full h-1 bg-studio-800 rounded-lg cursor-pointer"
+                  title={`Shared boundary between ${layer.name} and ${layers[idx + 1].name}`}
+                />
+              </div>
+            )}
+            </React.Fragment>
           );
         })}
       </div>

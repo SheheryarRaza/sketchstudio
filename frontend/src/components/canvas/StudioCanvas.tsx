@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { ProjectState } from '../../types/studio';
 import { renderValueStudyOnCanvas } from '../../utils/canvasShaders';
+import { buildValueLayers } from '../../utils/cutPoints';
 import { capRenderSize } from '../../utils/renderScale';
 import { fetchEdgeContours } from '../../utils/analysisApi';
 import { computeTrueSizeScale } from '../../utils/paperMapping';
@@ -175,6 +176,11 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     [project.imageWidth, project.imageHeight],
   );
 
+  const layers = useMemo(
+    () => buildValueLayers(project.layerMeta, project.cutPoints),
+    [project.layerMeta, project.cutPoints],
+  );
+
   // Re-render canvas shader (edges view is handled separately below — it's
   // backend-rendered, not a client-side pixel shader)
   const renderScene = useCallback(() => {
@@ -192,13 +198,13 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     renderValueStudyOnCanvas(
       img,
       canvas,
-      project.layers,
+      layers,
       viewMode === 'split' ? 'valueStudy' : viewMode,
       splitRatio,
       project.isolation,
       project.ghostOpacity
     );
-  }, [loadedImage, renderSize, project.layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity]);
+  }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity]);
 
   useEffect(() => {
     renderScene();
