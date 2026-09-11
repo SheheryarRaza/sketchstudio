@@ -1,6 +1,11 @@
+import io
 import json
 import unittest
 from pathlib import Path
+from PIL import Image
+
+from app.main import app
+from app.core.config import settings
 
 
 async def asgi_request(app, method: str, path: str, query_string: bytes = b"", headers: list = None, body_content: bytes = b""):
@@ -33,8 +38,6 @@ async def asgi_request(app, method: str, path: str, query_string: bytes = b"", h
 
 class TestDeadPlumbingRemoval(unittest.IsolatedAsyncioTestCase):
     def test_routes_and_mounts(self):
-        from app.main import app
-
         paths = app.openapi()["paths"]
 
         # Projects API should be removed
@@ -53,8 +56,6 @@ class TestDeadPlumbingRemoval(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("/uploads", mount_paths, f"Found /uploads mount in app.routes: {mount_paths}")
 
     async def test_dead_endpoints_return_404(self):
-        from app.main import app
-
         status, _ = await asgi_request(app, "GET", "/api/projects/")
         self.assertEqual(status, 404)
 
@@ -62,16 +63,12 @@ class TestDeadPlumbingRemoval(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 404)
 
     async def test_health_endpoint_returns_200_without_db(self):
-        from app.main import app
-
         status, body = await asgi_request(app, "GET", "/api/health")
         self.assertEqual(status, 200)
         data = json.loads(body.decode("utf-8"))
         self.assertEqual(data["status"], "healthy")
 
     async def test_exports_endpoint_serves_pdf_without_db(self):
-        from app.main import app
-
         status, body = await asgi_request(
             app,
             "GET",
@@ -82,10 +79,6 @@ class TestDeadPlumbingRemoval(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body.startswith(b"%PDF-"), "Response must be a valid PDF document")
 
     async def test_cv_histogram_endpoint_works_without_db(self):
-        from app.main import app
-        from PIL import Image
-        import io
-
         img_buf = io.BytesIO()
         Image.new("RGB", (16, 16), color="gray").save(img_buf, format="PNG")
         img_bytes = img_buf.getvalue()
@@ -115,8 +108,6 @@ class TestDeadPlumbingRemoval(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((backend_dir / "app" / "api" / "projects.py").exists(), "projects.py API should be deleted")
 
     def test_config_has_no_database_or_upload_settings(self):
-        from app.core.config import settings
-
         self.assertFalse(hasattr(settings, "DATABASE_URL"), "settings should not define DATABASE_URL")
         self.assertFalse(hasattr(settings, "UPLOAD_DIR"), "settings should not define UPLOAD_DIR")
 
