@@ -521,7 +521,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
           {project.viewMode === 'edges' && edgesState.status === 'error' && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center">
               <AlertTriangle className="w-8 h-8 text-rose-400" />
-              <span className="text-sm font-bold text-slate-100">Couldn't extract contours</span>
+              <span className="text-sm font-bold text-slate-100">Couldn&apos;t extract contours</span>
               <span className="text-xs text-slate-400 max-w-xs">{edgesState.message}</span>
               <button
                 onClick={() => setEdgesRetryTick((t) => t + 1)}
