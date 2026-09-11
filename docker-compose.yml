@@ -1,41 +1,15 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: sketch_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-sketch_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sketch_password}
-      POSTGRES_DB: ${POSTGRES_DB:-sketch_studio}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sketch_user} -d ${POSTGRES_DB:-sketch_studio}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - sketch_network
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: sketch_backend
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-sketch_user}:${POSTGRES_PASSWORD:-sketch_password}@postgres:5432/${POSTGRES_DB:-sketch_studio}
       DEBUG: "false"
       CORS_ORIGINS: '["http://localhost:3000", "http://127.0.0.1:3000"]'
     ports:
       - "8000:8000"
-    volumes:
-      - backend_uploads:/app/uploads
     networks:
       - sketch_network
 
@@ -56,12 +30,6 @@ services:
       - "3000:3000"
     networks:
       - sketch_network
-
-volumes:
-  postgres_data:
-    driver: local
-  backend_uploads:
-    driver: local
 
 networks:
   sketch_network:
