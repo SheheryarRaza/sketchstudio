@@ -5,6 +5,7 @@ import type { ProjectState } from '../../types/studio';
 import { renderValueStudyOnCanvas } from '../../utils/canvasShaders';
 import { capRenderSize } from '../../utils/renderScale';
 import { fetchEdgeContours } from '../../utils/analysisApi';
+import { computeTrueSizeScale } from '../../utils/paperMapping';
 import { GridOverlay } from './GridOverlay';
 import { MethodOverlays } from './MethodOverlays';
 import { CaliperOverlay } from './CaliperOverlay';
@@ -417,17 +418,29 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
 
           <button
             onClick={() => {
-              setScale(1.0);
+              const trueScale = computeTrueSizeScale(
+                project.paperMapping,
+                project.calibration.screenDpi,
+                project.imageWidth,
+                project.imageHeight,
+              );
+              if (trueScale === null) return;
+              setScale(trueScale);
               setPan({ x: 0, y: 0 });
             }}
-            className={`px-2.5 py-1 rounded-xl font-mono text-[11px] font-bold transition-all ${
-              project.calibration.isCalibrated
+            disabled={!project.calibration.isCalibrated || !project.paperMapping.isDeclared}
+            className={`px-2.5 py-1 rounded-xl font-mono text-[11px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+              project.calibration.isCalibrated && project.paperMapping.isDeclared
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-                : 'bg-studio-800 text-slate-300 hover:bg-studio-750'
+                : 'bg-studio-800 text-slate-300'
             }`}
-            title="1:1 Real-World Physical Scale (Calibrated)"
+            title={
+              project.calibration.isCalibrated && project.paperMapping.isDeclared
+                ? 'Render the Reference Image at true physical size on this screen'
+                : 'Requires Physical Caliper calibration and a declared Paper Mapping'
+            }
           >
-            1:1 Scale
+            True Size
           </button>
 
           <div className="w-[1px] h-4 bg-studio-800 mx-1" />
@@ -533,7 +546,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             width={project.imageWidth || 600}
             height={project.imageHeight || 800}
             grid={project.grid}
-            calibration={project.calibration}
+            paperMapping={project.paperMapping}
           />
 
           <MethodOverlays

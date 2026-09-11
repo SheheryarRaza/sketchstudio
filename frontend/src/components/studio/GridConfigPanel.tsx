@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import type { GridConfig, GridType, CalibrationProfile } from '../../types/studio';
-import { Grid, Eye, EyeOff } from 'lucide-react';
+import type { GridConfig, GridType, PaperMappingConfig } from '../../types/studio';
+import { Grid, Eye, EyeOff, FileStack } from 'lucide-react';
 
 interface GridConfigPanelProps {
   grid: GridConfig;
-  calibration: CalibrationProfile;
+  paperMapping: PaperMappingConfig;
   onChange: (updated: Partial<GridConfig>) => void;
-  onOpenCalibration: () => void;
+  onOpenPaperMapping: () => void;
 }
 
 interface GridStyleOption {
@@ -28,9 +28,9 @@ const GRID_STYLES: GridStyleOption[] = [
 
 export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
   grid,
-  calibration,
+  paperMapping,
   onChange,
-  onOpenCalibration,
+  onOpenPaperMapping,
 }) => {
   return (
     <div className="flex flex-col gap-4 p-4 text-xs">
@@ -41,7 +41,9 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
         </div>
         <button
           onClick={() => onChange({ enabled: !grid.enabled })}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+          disabled={!paperMapping.isDeclared}
+          title={paperMapping.isDeclared ? undefined : 'Declare a Paper Mapping first'}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
             grid.enabled
               ? 'bg-studio-accent text-slate-950 shadow-md'
               : 'bg-studio-800 text-slate-400 hover:text-white'
@@ -51,6 +53,18 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
           <span>{grid.enabled ? 'Enabled' : 'Hidden'}</span>
         </button>
       </div>
+
+      {!paperMapping.isDeclared && (
+        <button
+          onClick={onOpenPaperMapping}
+          className="flex items-center gap-2 p-3 rounded-xl bg-studio-gold/10 border border-studio-gold/30 text-studio-gold hover:bg-studio-gold/20 transition-all text-left animate-pulse"
+        >
+          <FileStack className="w-4 h-4 shrink-0" />
+          <span className="font-semibold">
+            Declare a Paper Mapping to draw a correctly-sized Transfer Grid →
+          </span>
+        </button>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -95,10 +109,10 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
         <div className="flex items-center justify-between text-[10px] text-slate-400">
           <span>5mm (Fine)</span>
           <button
-            onClick={onOpenCalibration}
+            onClick={onOpenPaperMapping}
             className="text-studio-accent hover:underline font-medium"
           >
-            {calibration.isCalibrated ? 'Calibrated (1:1 Scale)' : 'Calibrate Screen DPI →'}
+            {paperMapping.isDeclared ? `${paperMapping.paperPreset} Paper Mapping →` : 'Declare Paper Mapping →'}
           </button>
           <span>50mm (Broad)</span>
         </div>

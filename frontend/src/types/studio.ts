@@ -91,10 +91,18 @@ export interface CalibrationProfile {
   isCalibrated: boolean;
   screenDpi: number; // calculated pixels per inch
   pixelsPerMm: number;
+}
+
+// How the Reference Image fills the declared paper: spans its full width, its
+// full height, or fits entirely within both (whichever dimension is tighter).
+export type PaperFillMode = 'fillWidth' | 'fillHeight' | 'fitWithin';
+
+export interface PaperMappingConfig {
+  isDeclared: boolean;
   paperPreset: PaperPreset;
   paperWidthMm: number;
   paperHeightMm: number;
-  paperOrientation: 'portrait' | 'landscape';
+  fillMode: PaperFillMode;
 }
 
 export interface LoomisAnchorPoints {
@@ -172,6 +180,7 @@ export interface ProjectState {
   layers: ValueLayer[];
   grid: GridConfig;
   calibration: CalibrationProfile;
+  paperMapping: PaperMappingConfig;
   methods: DrawingMethodState;
   viewMode: 'original' | 'valueStudy' | 'edges' | 'split' | 'posterized';
   splitPosition: number; // 0-100 percentage

@@ -1,24 +1,27 @@
 import React from 'react';
-import type { GridConfig, CalibrationProfile } from '../../types/studio';
-import { mmToPx } from '../../utils/physicalScale';
+import type { GridConfig, PaperMappingConfig } from '../../types/studio';
+import { imagePxPerMm, mmToImagePx } from '../../utils/paperMapping';
 
 interface GridOverlayProps {
   width: number;
   height: number;
   grid: GridConfig;
-  calibration: CalibrationProfile;
+  paperMapping: PaperMappingConfig;
 }
 
 export const GridOverlay: React.FC<GridOverlayProps> = ({
   width,
   height,
   grid,
-  calibration,
+  paperMapping,
 }) => {
-  if (!grid.enabled || width <= 0 || height <= 0) return null;
+  if (!grid.enabled || width <= 0 || height <= 0 || !paperMapping.isDeclared) return null;
 
-  const dpi = calibration.isCalibrated ? calibration.screenDpi : 96;
-  const cellPixelSize = Math.max(10, mmToPx(grid.cellSizeMm, dpi));
+  // Cell size lives in image-pixel space, derived from the declared Paper Mapping —
+  // this is what keeps it visually correct at every zoom level (ADR-0008), since the
+  // whole canvas+overlay box is CSS-scaled uniformly by StudioCanvas afterward.
+  const pxPerMm = imagePxPerMm(paperMapping, width, height);
+  const cellPixelSize = Math.max(10, mmToImagePx(grid.cellSizeMm, pxPerMm));
 
   const cols = Math.ceil(width / cellPixelSize);
   const rows = Math.ceil(height / cellPixelSize);

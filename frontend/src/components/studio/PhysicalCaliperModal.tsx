@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import type { CalibrationProfile, PaperPreset } from '../../types/studio';
+import type { CalibrationProfile } from '../../types/studio';
 import {
   calculateDpiFromCardPixels,
   calculateDpiFromRulerPixels,
-  PAPER_PRESETS,
 } from '../../utils/physicalScale';
 import { X, Ruler, CreditCard, Check, Sparkles } from 'lucide-react';
 
@@ -18,7 +17,6 @@ interface PhysicalCaliperModalProps {
 
 export const PhysicalCaliperModal: React.FC<PhysicalCaliperModalProps> = ({
   isOpen,
-  calibration,
   onClose,
   onSaveCalibration,
 }) => {
@@ -26,7 +24,6 @@ export const PhysicalCaliperModal: React.FC<PhysicalCaliperModalProps> = ({
   const [cardPixelWidth, setCardPixelWidth] = useState<number>(320);
   const [rulerLengthMm] = useState<number>(100);
   const [rulerPixelLength, setRulerPixelLength] = useState<number>(380);
-  const [selectedPaper, setSelectedPaper] = useState<PaperPreset>(calibration.paperPreset);
 
   if (!isOpen) return null;
 
@@ -36,15 +33,10 @@ export const PhysicalCaliperModal: React.FC<PhysicalCaliperModalProps> = ({
       : calculateDpiFromRulerPixels(rulerPixelLength, rulerLengthMm);
 
   const handleApply = () => {
-    const paper = PAPER_PRESETS[selectedPaper];
     onSaveCalibration({
       isCalibrated: true,
       screenDpi: currentDpi.dpi,
       pixelsPerMm: currentDpi.pixelsPerMm,
-      paperPreset: selectedPaper,
-      paperWidthMm: paper.widthMm,
-      paperHeightMm: paper.heightMm,
-      paperOrientation: 'portrait',
     });
     onClose();
   };
@@ -144,28 +136,6 @@ export const PhysicalCaliperModal: React.FC<PhysicalCaliperModalProps> = ({
               />
             </div>
           )}
-
-          <div className="flex flex-col gap-2">
-            <span className="font-semibold text-slate-300">Target Physical Drawing Paper:</span>
-            <div className="grid grid-cols-4 gap-1.5">
-              {(Object.keys(PAPER_PRESETS) as PaperPreset[]).slice(0, 8).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => setSelectedPaper(preset)}
-                  className={`p-2 rounded-xl text-center border font-medium transition-all ${
-                    selectedPaper === preset
-                      ? 'bg-studio-accent text-slate-950 font-bold border-studio-accent shadow'
-                      : 'bg-studio-950 border-studio-800 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <div>{preset}</div>
-                  <div className="text-[9px] opacity-75 font-mono">
-                    {PAPER_PRESETS[preset].widthMm}×{PAPER_PRESETS[preset].heightMm}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div className="bg-studio-950 p-3 rounded-xl border border-studio-850 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">

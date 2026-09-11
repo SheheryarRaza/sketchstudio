@@ -45,8 +45,12 @@ The interactive calibration mechanism that maps display pixels to physical real-
 _Avoid_: Screen ruler, zoom tool
 
 **Paper Mapping**:
-The declared relationship between the Reference Image and a physical paper size (e.g., "this photo fills A4 width"), used to compute Transfer Grid spacing in image space. Independent of Physical Caliper: Physical Caliper's screen calibration only governs the optional true-size on-screen view, never grid spacing or export dimensions.
+The declared relationship between the Reference Image and a physical paper size (e.g., "this photo fills A4 width"), used to compute Transfer Grid spacing in image space. Independent of Physical Caliper: Physical Caliper's screen calibration only governs the optional True Size on-screen view, never grid spacing or export dimensions.
 _Avoid_: Scale, calibration, 1:1, print size
+
+**True Size**:
+An on-screen view mode that renders the Reference Image at its literal physical size on this screen, combining the Paper Mapping's declared real-world size with Physical Caliper's screen calibration. Disabled until both are set; never used for Transfer Grid spacing or export dimensions.
+_Avoid_: 1:1 scale, actual size, zoom to fit
 
 **Transfer Grid**:
 The overlay of evenly spaced cells drawn across the Reference Image at a declared physical size, sized in image space from the Paper Mapping and used to transcribe proportions onto the physical page square by square.
