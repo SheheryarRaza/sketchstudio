@@ -1,4 +1,4 @@
-import type { IsolationTarget, TonalRenderMode, ValueFamily, ValueLayer } from '../types/studio';
+import type { IsolationTarget, TonalRenderMode, ValueFamily, ValueFamilyFloors, ValueLayer } from '../types/studio';
 import { PENCIL_DATABASE } from './pencilGrades';
 
 export interface ValueFamilyInfo {
@@ -9,45 +9,49 @@ export interface ValueFamilyInfo {
   description: string;
 }
 
-const HALFTONE_FLOOR = 85;
-const LIGHT_FLOOR = 170;
+// The Value Family split before any Reference Image has been measured.
+export const DEFAULT_VALUE_FAMILY_FLOORS: ValueFamilyFloors = { halftoneFloor: 85, lightFloor: 170 };
 
 /**
  * Value Families are defined by tonal range, never by layer index, so they stay
- * coherent as the Tonal Layer count varies between 3 and 9.
+ * coherent as the Tonal Layer count varies between 3 and 9. The floors come from
+ * ProjectState.valueFamilyFloors, seeded per Reference Image, rather than a fixed
+ * split shared by every photo.
  */
-export const VALUE_FAMILIES: ValueFamilyInfo[] = [
-  { id: 'shadows', name: 'Shadows', minThreshold: 0, maxThreshold: HALFTONE_FLOOR - 1, description: 'Core shadow, cast shadow and occlusion' },
-  { id: 'halftones', name: 'Halftones', minThreshold: HALFTONE_FLOOR, maxThreshold: LIGHT_FLOOR - 1, description: 'The turning form between light and shadow' },
-  { id: 'lights', name: 'Lights', minThreshold: LIGHT_FLOOR, maxThreshold: 255, description: 'Light planes and specular highlights' },
-];
+export function buildValueFamilies(floors: ValueFamilyFloors): ValueFamilyInfo[] {
+  return [
+    { id: 'shadows', name: 'Shadows', minThreshold: 0, maxThreshold: floors.halftoneFloor - 1, description: 'Core shadow, cast shadow and occlusion' },
+    { id: 'halftones', name: 'Halftones', minThreshold: floors.halftoneFloor, maxThreshold: floors.lightFloor - 1, description: 'The turning form between light and shadow' },
+    { id: 'lights', name: 'Lights', minThreshold: floors.lightFloor, maxThreshold: 255, description: 'Light planes and specular highlights' },
+  ];
+}
 
 /**
- * Classifies on the two floors rather than on VALUE_FAMILIES' inclusive ranges:
+ * Classifies on the two floors rather than on buildValueFamilies' inclusive ranges:
  * a band whose bounds the artist has dragged can have a midpoint of 84.5, which
  * falls between those ranges and would otherwise need a fabricated fallback.
  */
-export function familyOfLayer(layer: ValueLayer): ValueFamily {
+export function familyOfLayer(layer: ValueLayer, floors: ValueFamilyFloors): ValueFamily {
   const midpoint = (layer.minThreshold + layer.maxThreshold) / 2;
-  if (midpoint < HALFTONE_FLOOR) return 'shadows';
-  if (midpoint < LIGHT_FLOOR) return 'halftones';
+  if (midpoint < floors.halftoneFloor) return 'shadows';
+  if (midpoint < floors.lightFloor) return 'halftones';
   return 'lights';
 }
 
-export function layersInFamily(layers: ValueLayer[], family: ValueFamily): ValueLayer[] {
-  return layers.filter(layer => familyOfLayer(layer) === family);
+export function layersInFamily(layers: ValueLayer[], family: ValueFamily, floors: ValueFamilyFloors): ValueLayer[] {
+  return layers.filter(layer => familyOfLayer(layer, floors) === family);
 }
 
 /**
  * The set of Tonal Layers an isolation targets. An empty set means nothing is
  * isolated and the canvas renders normally.
  */
-export function isolatedLayerIds(layers: ValueLayer[], isolation: IsolationTarget): Set<string> {
+export function isolatedLayerIds(layers: ValueLayer[], isolation: IsolationTarget, floors: ValueFamilyFloors): Set<string> {
   if (isolation.kind === 'layer') {
     return new Set(layers.filter(l => l.id === isolation.layerId).map(l => l.id));
   }
   if (isolation.kind === 'family') {
-    return new Set(layersInFamily(layers, isolation.family).map(l => l.id));
+    return new Set(layersInFamily(layers, isolation.family, floors).map(l => l.id));
   }
   return new Set();
 }

@@ -1,4 +1,4 @@
-import type { ValueLayer, ValueLayerMeta } from '../types/studio';
+import type { HistogramStats, ValueLayer, ValueLayerMeta } from '../types/studio';
 
 const MIN_GAP = 1;
 
@@ -13,6 +13,46 @@ export function generateDefaultCutPoints(count: number): number[] {
     cutPoints.push(Math.round(255 - i * stepSize));
   }
   return cutPoints;
+}
+
+/**
+ * Cut Points seeded from this photo's measured luminance percentiles, replacing
+ * the fixed 85/170 floors every photo used to share. The measured 10th/90th
+ * percentile become the outermost Cut Points (this photo's black and white
+ * points); any remaining Cut Points are spaced evenly between them, in the
+ * same brightest-to-darkest order generateDefaultCutPoints uses.
+ */
+export function generateCutPointsFromHistogram(count: number, histogram: HistogramStats): number[] {
+  const lightFloor = Math.round(histogram.highlightThreshold);
+  const halftoneFloor = Math.round(histogram.deepDarkThreshold);
+  const innerCount = count - 3;
+  const step = (lightFloor - halftoneFloor) / (innerCount + 1);
+
+  const cutPoints = [lightFloor];
+  for (let i = 1; i <= innerCount; i++) {
+    cutPoints.push(Math.round(lightFloor - i * step));
+  }
+  cutPoints.push(halftoneFloor);
+
+  return enforceDescendingGap(cutPoints);
+}
+
+/**
+ * Clamps a candidate Cut Points array to the same invariant moveCutPoint
+ * enforces one point at a time: strictly descending, at least MIN_GAP apart,
+ * within [0, 255]. A photo whose measured percentiles sit close together
+ * (e.g. a flat, low-contrast reference image) would otherwise produce
+ * colliding or out-of-range points.
+ */
+function enforceDescendingGap(cutPoints: number[]): number[] {
+  const clamped = cutPoints.map(v => Math.max(0, Math.min(255, v)));
+  for (let i = 1; i < clamped.length; i++) {
+    clamped[i] = Math.min(clamped[i], clamped[i - 1] - MIN_GAP);
+  }
+  for (let i = clamped.length - 2; i >= 0; i--) {
+    clamped[i] = Math.max(clamped[i], clamped[i + 1] + MIN_GAP);
+  }
+  return clamped.map(v => Math.max(0, Math.min(255, v)));
 }
 
 /**

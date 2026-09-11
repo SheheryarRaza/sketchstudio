@@ -202,9 +202,10 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       viewMode === 'split' ? 'valueStudy' : viewMode,
       splitRatio,
       project.isolation,
-      project.ghostOpacity
+      project.ghostOpacity,
+      project.valueFamilyFloors
     );
-  }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity]);
+  }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity, project.valueFamilyFloors]);
 
   useEffect(() => {
     renderScene();

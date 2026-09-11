@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats, LandmarkStats } from '@/types/studio';
 import { generateDefaultLayerMeta } from '@/utils/pencilGrades';
 import { generateDefaultCutPoints } from '@/utils/cutPoints';
+import { DEFAULT_VALUE_FAMILY_FLOORS } from '@/utils/tonalDecision';
 import { capRenderSize } from '@/utils/renderScale';
 import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace } from '@/utils/analysisApi';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
@@ -123,6 +124,8 @@ const INITIAL_PROJECT_STATE: ProjectState = {
   splitPosition: 50,
   isolation: { kind: 'none' },
   ghostOpacity: 0.18,
+  valueFamilyFloors: DEFAULT_VALUE_FAMILY_FLOORS,
+  cutPointSource: 'default',
   histogram: { status: 'idle' },
   landmarks: { status: 'idle' },
 };
