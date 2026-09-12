@@ -1,9 +1,13 @@
 FROM python:3.13-slim
 
-# Install system dependencies for OpenCV and graphics
+# Install system dependencies for OpenCV and graphics. libegl1/libgles2 are
+# required by mediapipe's native library even for CPU-only inference (it dlopens
+# libEGL.so.1 and libGLESv2.so.2 unconditionally on load).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
+    libegl1 \
+    libgles2 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
