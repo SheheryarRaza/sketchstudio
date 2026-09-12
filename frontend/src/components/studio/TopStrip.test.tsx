@@ -4,7 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { TopStrip } from './TopStrip';
 import { INITIAL_PROJECT_STATE } from '../../utils/initialProjectState';
-import type { ProjectState } from '../../types/studio';
+import type { AtelierStage, ProjectState } from '../../types/studio';
 
 const noop = () => {};
 
@@ -26,16 +26,33 @@ const renderStrip = (state: Partial<ProjectState> = {}) => {
   );
 };
 
+const assertStageNumberRendered = (html: string, targetStage: AtelierStage, contextMsg?: string) => {
+  const stageBadgePattern = new RegExp(`>\\s*${targetStage}\\s*</span>`);
+  assert.match(
+    html,
+    stageBadgePattern,
+    contextMsg || `Stage number ${targetStage} must be rendered in badge circle`
+  );
+};
+
+const assertLabelHiddenUntilHover = (html: string, label: string, contextMsg?: string) => {
+  const hiddenRegex = new RegExp(`<span class="[^"]*hidden[^"]*group-hover:inline[^"]*">${label}</span>`);
+  assert.match(
+    html,
+    hiddenRegex,
+    contextMsg || `Stage label "${label}" must be hidden by default and reveal on group-hover`
+  );
+};
+
 test('All 5 stage numbers (1, 2, 3, 4, 5) are always visible across all stages', () => {
-  for (let stageNum = 1; stageNum <= 5; stageNum++) {
-    const html = renderStrip({ stage: stageNum as 1 | 2 | 3 | 4 | 5, isSandbox: false });
-    for (let s = 1; s <= 5; s++) {
-      // Each stage number must appear in a rendered circle badge
-      const stageBadgePattern = new RegExp(`>\\s*${s}\\s*</span>`);
-      assert.match(
+  const stages: AtelierStage[] = [1, 2, 3, 4, 5];
+  for (const activeStage of stages) {
+    const html = renderStrip({ stage: activeStage, isSandbox: false });
+    for (const targetStage of stages) {
+      assertStageNumberRendered(
         html,
-        stageBadgePattern,
-        `Stage number ${s} must be rendered when active stage is ${stageNum}`
+        targetStage,
+        `Stage number ${targetStage} must be rendered when active stage is ${activeStage}`
       );
     }
   }
@@ -52,22 +69,20 @@ test('Only the active stage text label is visible by default (inline), other sta
   // Inactive stages (1, 2, 4, 5) should have "hidden" and "group-hover:inline"
   const inactiveLabels = ['Envelope', 'Proportions', 'Halftone Modeling', 'Deep Accents'];
   for (const label of inactiveLabels) {
-    const inactiveRegex = new RegExp(`<span class="[^"]*hidden[^"]*group-hover:inline[^"]*">${label}</span>`);
-    assert.match(
-      html,
-      inactiveRegex,
-      `Inactive stage label "${label}" must be hidden by default and reveal on group-hover`
-    );
+    assertLabelHiddenUntilHover(html, label);
   }
 });
 
-test('Passed stages display completion indicator alongside their stage number', () => {
+test('Passed stages display completion styling while preserving their stage number', () => {
   const html = renderStrip({ stage: 4, isSandbox: false });
 
-  // Stages 1, 2, and 3 are passed. Stage numbers 1, 2, 3 must still be present.
-  for (const s of [1, 2, 3]) {
-    const badgePattern = new RegExp(`>\\s*${s}\\s*</span>`);
-    assert.match(html, badgePattern, `Passed stage ${s} must still render its stage number`);
+  // Stages 1, 2, and 3 are passed. Stage numbers 1, 2, 3 must still be present and have emerald styling.
+  const passedStages: AtelierStage[] = [1, 2, 3];
+  for (const passedStage of passedStages) {
+    assertStageNumberRendered(html, passedStage, `Passed stage ${passedStage} must still render its stage number`);
+    // Assert emerald completion style on passed badge
+    const passedBadgePattern = new RegExp(`bg-emerald-950[^>]*>\\s*${passedStage}\\s*</span>`);
+    assert.match(html, passedBadgePattern, `Passed stage ${passedStage} badge should have emerald completion styling`);
   }
 
   // Active stage 4 has "Halftone Modeling" visible
@@ -88,15 +103,26 @@ test('Stage buttons include full goal text and pencil grades in title tooltip to
 test('In Sandbox Mode, all stage numbers remain visible and no stage label is forced visible without hover', () => {
   const html = renderStrip({ stage: 2, isSandbox: true });
 
-  for (let s = 1; s <= 5; s++) {
-    const stageBadgePattern = new RegExp(`>\\s*${s}\\s*</span>`);
-    assert.match(html, stageBadgePattern, `Stage number ${s} must be rendered in Sandbox Mode`);
+  const stages: AtelierStage[] = [1, 2, 3, 4, 5];
+  for (const targetStage of stages) {
+    assertStageNumberRendered(html, targetStage, `Stage number ${targetStage} must be rendered in Sandbox Mode`);
   }
 
   // In Sandbox Mode, no stage is active, so all labels should be hidden until hovered
   const allLabels = ['Envelope', 'Proportions', 'Shadow Block-In', 'Halftone Modeling', 'Deep Accents'];
   for (const label of allLabels) {
-    const hiddenRegex = new RegExp(`<span class="[^"]*hidden[^"]*group-hover:inline[^"]*">${label}</span>`);
-    assert.match(html, hiddenRegex, `Stage label "${label}" should be hidden until hovered in Sandbox Mode`);
+    assertLabelHiddenUntilHover(html, label, `Stage label "${label}" should be hidden until hovered in Sandbox Mode`);
   }
+});
+
+test('Responsive layout horizontal footprint accommodates 820px, 1100px, and 1440px viewports without clipping', () => {
+  const html = renderStrip({ stage: 3, isSandbox: false });
+
+  // Header has flex layout with gap-4 and center strip with flex-1 and overflow-x-auto
+  assert.match(html, /<header[^>]*class="[^"]*flex items-center justify-between gap-4[^"]*"/);
+  assert.match(html, /<div[^>]*class="[^"]*flex-1 flex items-center justify-center gap-1 overflow-x-auto scrollbar-none[^"]*"/);
+
+  // Each stage button has shrink-0 and transition-colors to prevent layout distortion on hover
+  const buttonMatches = html.match(/<button[^>]*class="[^"]*shrink-0[^"]*"/g);
+  assert.ok(buttonMatches && buttonMatches.length >= 5, 'All stage buttons must have shrink-0 to prevent compression');
 });

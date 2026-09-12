@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import type { AtelierStage, ProjectState } from '../../types/studio';
-import { Upload, Ruler, BookOpen, Download, Compass, CheckCircle2 } from 'lucide-react';
+import { Upload, Ruler, BookOpen, Download, Compass } from 'lucide-react';
 
 interface TopStripProps {
   project: ProjectState;
@@ -78,7 +78,6 @@ export const TopStrip: React.FC<TopStripProps> = ({
               >
                 {s.stage}
               </span>
-              {isPassed && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
               <span
                 className={
                   isActive
