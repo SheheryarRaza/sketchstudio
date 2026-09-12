@@ -19,6 +19,8 @@ interface MethodSelectorPanelProps {
   onRetryLandmarks: () => void;
   onEstimateLightDirection?: () => void;
   isEstimatingLight?: boolean;
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
 const METHODS_LIST: Array<{ type: DrawingMethodType; name: string; creator: string; badge: string }> = [
@@ -39,6 +41,8 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
   onRetryLandmarks,
   onEstimateLightDirection,
   isEstimatingLight = false,
+  imageWidth = 800,
+  imageHeight = 1000,
 }) => {
   const activeMethodInfo = DRAWING_METHODS_DATABASE[methods.activeMethod];
   const usesLandmarkAutoSnap = methods.activeMethod === 'loomis' || methods.activeMethod === 'reilly';
@@ -192,7 +196,7 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
               onChange={(e) => {
                 const angle = parseInt(e.target.value, 10);
                 onChange({
-                  asaro: setLightAngle(methods.asaro, angle, 800, 1000, 'manual'),
+                  asaro: setLightAngle(methods.asaro, angle, imageWidth, imageHeight, 'manual'),
                 });
               }}
               className="w-full h-1.5 bg-studio-800 rounded-lg cursor-pointer accent-studio-accent"

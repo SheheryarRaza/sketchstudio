@@ -284,125 +284,148 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
         </g>
       )}
 
-      {activeMethod === 'asaro' && (() => {
-        const asaro = methodState.asaro;
-        const line = asaro.terminatorLine ?? calculateTerminatorLine(width, height, asaro.lightAngleDeg);
-        const normAngle = normalizeAngle(asaro.lightAngleDeg);
-        const rad = (normAngle * Math.PI) / 180;
-        const lx = Math.cos(rad);
-        const ly = -Math.sin(rad);
-
-        const midX = (line.p1.x + line.p2.x) / 2;
-        const midY = (line.p1.y + line.p2.y) / 2;
-
-        const rayDistance = Math.min(width, height) * 0.35;
-        const rayStartX = midX + lx * rayDistance;
-        const rayStartY = midY + ly * rayDistance;
-        const rayEndX = midX + lx * (rayDistance * 0.35);
-        const rayEndY = midY + ly * (rayDistance * 0.35);
-
-        return (
-          <g>
-            <g stroke={color} fill="none" strokeWidth="1.5" opacity={asaro.planesOpacity}>
-              <path
-                d={`M ${width * 0.3} ${height * 0.2} L ${width * 0.32} ${height * 0.4} L ${width * 0.35} ${height * 0.65} L ${width * 0.42} ${height * 0.85} 
-                    L ${width * 0.58} ${height * 0.85} L ${width * 0.65} ${height * 0.65} L ${width * 0.68} ${height * 0.4} L ${width * 0.7} ${height * 0.2}`}
-              />
-              <polygon
-                points={`${width * 0.35},${height * 0.38} ${width * 0.45},${height * 0.36} ${width * 0.47},${height * 0.45} ${width * 0.44},${height * 0.5} ${width * 0.36},${height * 0.48}`}
-              />
-              <polygon
-                points={`${width * 0.55},${height * 0.36} ${width * 0.65},${height * 0.38} ${width * 0.64},${height * 0.48} ${width * 0.56},${height * 0.5} ${width * 0.53},${height * 0.45}`}
-              />
-              <polygon
-                points={`${width * 0.47},${height * 0.38} ${width * 0.53},${height * 0.38} ${width * 0.54},${height * 0.6} ${width * 0.46},${height * 0.6}`}
-              />
-              <polygon
-                points={`${width * 0.46},${height * 0.34} ${width * 0.54},${height * 0.34} ${width * 0.52},${height * 0.38} ${width * 0.48},${height * 0.38}`}
-              />
-              <path
-                d={`M ${width * 0.42} ${height * 0.68} L ${width * 0.5} ${height * 0.67} L ${width * 0.58} ${height * 0.68} 
-                    L ${width * 0.5} ${height * 0.72} Z`}
-              />
-              <polygon
-                points={`${width * 0.44},${height * 0.8} ${width * 0.56},${height * 0.8} ${width * 0.54},${height * 0.86} ${width * 0.46},${height * 0.86}`}
-              />
-            </g>
-
-            {asaro.showTerminator && (
-              <g className="terminator-overlay" opacity={Math.max(0.65, asaro.planesOpacity)}>
-                <line
-                  x1={line.p1.x}
-                  y1={line.p1.y}
-                  x2={line.p2.x}
-                  y2={line.p2.y}
-                  stroke="#0284c7"
-                  strokeWidth="5"
-                  strokeOpacity="0.4"
-                  strokeLinecap="round"
-                />
-                <line
-                  className="terminator-line"
-                  x1={line.p1.x}
-                  y1={line.p1.y}
-                  x2={line.p2.x}
-                  y2={line.p2.y}
-                  stroke="#38bdf8"
-                  strokeWidth="2.5"
-                  strokeDasharray="8,5"
-                  strokeLinecap="round"
-                />
-                <circle cx={line.p1.x} cy={line.p1.y} r="4.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
-                <circle cx={line.p2.x} cy={line.p2.y} r="4.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
-
-                <g transform={`translate(${midX}, ${midY})`}>
-                  <text
-                    x="8"
-                    y="-8"
-                    fill="#38bdf8"
-                    fontSize="11"
-                    fontWeight="700"
-                    fontFamily="monospace"
-                    textAnchor={isFlippedHorizontal ? 'end' : 'start'}
-                    transform={isFlippedHorizontal ? 'scale(-1, 1)' : undefined}
-                    style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)' }}
-                  >
-                    Terminator (Core Shadow Boundary)
-                  </text>
-                </g>
-
-                <g className="light-direction-ray">
-                  <line
-                    x1={rayStartX}
-                    y1={rayStartY}
-                    x2={rayEndX}
-                    y2={rayEndY}
-                    stroke="#facc15"
-                    strokeWidth="2"
-                    strokeDasharray="4,3"
-                  />
-                  <circle cx={rayStartX} cy={rayStartY} r="5" fill="#facc15" stroke="#713f12" strokeWidth="1.5" />
-                  <g transform={`translate(${rayStartX}, ${rayStartY})`}>
-                    <text
-                      x={lx > 0 ? -8 : 8}
-                      y="-8"
-                      fill="#fef08a"
-                      fontSize="10"
-                      fontWeight="600"
-                      fontFamily="sans-serif"
-                      textAnchor={lx > 0 ? (isFlippedHorizontal ? 'start' : 'end') : (isFlippedHorizontal ? 'end' : 'start')}
-                      transform={isFlippedHorizontal ? 'scale(-1, 1)' : undefined}
-                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
-                    >
-                      Light {Math.round(normAngle)}°
-                    </text>
-                  </g>
-                </g>
-              </g>
-            )}
-          </g>
-        );
-      })()}
+      {activeMethod === 'asaro' && (
+        <AsaroOverlay
+          width={width}
+          height={height}
+          asaro={methodState.asaro}
+          color={color}
+          isFlippedHorizontal={isFlippedHorizontal}
+        />
+      )}
     </svg>
+  );
+};
+
+interface AsaroOverlayProps {
+  width: number;
+  height: number;
+  asaro: DrawingMethodState['asaro'];
+  color: string;
+  isFlippedHorizontal: boolean;
+}
+
+const AsaroOverlay: React.FC<AsaroOverlayProps> = ({
+  width,
+  height,
+  asaro,
+  color,
+  isFlippedHorizontal,
+}) => {
+  const line = asaro.terminatorLine ?? calculateTerminatorLine(width, height, asaro.lightAngleDeg);
+  const normAngle = normalizeAngle(asaro.lightAngleDeg);
+  const rad = (normAngle * Math.PI) / 180;
+  const lx = Math.cos(rad);
+  const ly = -Math.sin(rad);
+
+  const midX = (line.p1.x + line.p2.x) / 2;
+  const midY = (line.p1.y + line.p2.y) / 2;
+
+  const rayDistance = Math.min(width, height) * 0.35;
+  const rayStartX = midX + lx * rayDistance;
+  const rayStartY = midY + ly * rayDistance;
+  const rayEndX = midX + lx * (rayDistance * 0.35);
+  const rayEndY = midY + ly * (rayDistance * 0.35);
+
+  return (
+    <g>
+      <g stroke={color} fill="none" strokeWidth="1.5" opacity={asaro.planesOpacity}>
+        <path
+          d={`M ${width * 0.3} ${height * 0.2} L ${width * 0.32} ${height * 0.4} L ${width * 0.35} ${height * 0.65} L ${width * 0.42} ${height * 0.85} 
+              L ${width * 0.58} ${height * 0.85} L ${width * 0.65} ${height * 0.65} L ${width * 0.68} ${height * 0.4} L ${width * 0.7} ${height * 0.2}`}
+        />
+        <polygon
+          points={`${width * 0.35},${height * 0.38} ${width * 0.45},${height * 0.36} ${width * 0.47},${height * 0.45} ${width * 0.44},${height * 0.5} ${width * 0.36},${height * 0.48}`}
+        />
+        <polygon
+          points={`${width * 0.55},${height * 0.36} ${width * 0.65},${height * 0.38} ${width * 0.64},${height * 0.48} ${width * 0.56},${height * 0.5} ${width * 0.53},${height * 0.45}`}
+        />
+        <polygon
+          points={`${width * 0.47},${height * 0.38} ${width * 0.53},${height * 0.38} ${width * 0.54},${height * 0.6} ${width * 0.46},${height * 0.6}`}
+        />
+        <polygon
+          points={`${width * 0.46},${height * 0.34} ${width * 0.54},${height * 0.34} ${width * 0.52},${height * 0.38} ${width * 0.48},${height * 0.38}`}
+        />
+        <path
+          d={`M ${width * 0.42} ${height * 0.68} L ${width * 0.5} ${height * 0.67} L ${width * 0.58} ${height * 0.68} 
+              L ${width * 0.5} ${height * 0.72} Z`}
+        />
+        <polygon
+          points={`${width * 0.44},${height * 0.8} ${width * 0.56},${height * 0.8} ${width * 0.54},${height * 0.86} ${width * 0.46},${height * 0.86}`}
+        />
+      </g>
+
+      {asaro.showTerminator && (
+        <g className="terminator-overlay" opacity={Math.max(0.65, asaro.planesOpacity)}>
+          <line
+            x1={line.p1.x}
+            y1={line.p1.y}
+            x2={line.p2.x}
+            y2={line.p2.y}
+            stroke="#0284c7"
+            strokeWidth="5"
+            strokeOpacity="0.4"
+            strokeLinecap="round"
+          />
+          <line
+            className="terminator-line"
+            x1={line.p1.x}
+            y1={line.p1.y}
+            x2={line.p2.x}
+            y2={line.p2.y}
+            stroke="#38bdf8"
+            strokeWidth="2.5"
+            strokeDasharray="8,5"
+            strokeLinecap="round"
+          />
+          <circle cx={line.p1.x} cy={line.p1.y} r="4.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
+          <circle cx={line.p2.x} cy={line.p2.y} r="4.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="1.5" />
+
+          <g transform={`translate(${midX}, ${midY})`}>
+            <text
+              x="8"
+              y="-8"
+              fill="#38bdf8"
+              fontSize="11"
+              fontWeight="700"
+              fontFamily="monospace"
+              textAnchor={isFlippedHorizontal ? 'end' : 'start'}
+              transform={isFlippedHorizontal ? 'scale(-1, 1)' : undefined}
+              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)' }}
+            >
+              Terminator (Core Shadow Boundary)
+            </text>
+          </g>
+
+          <g className="light-direction-ray">
+            <line
+              x1={rayStartX}
+              y1={rayStartY}
+              x2={rayEndX}
+              y2={rayEndY}
+              stroke="#facc15"
+              strokeWidth="2"
+              strokeDasharray="4,3"
+            />
+            <circle cx={rayStartX} cy={rayStartY} r="5" fill="#facc15" stroke="#713f12" strokeWidth="1.5" />
+            <g transform={`translate(${rayStartX}, ${rayStartY})`}>
+              <text
+                x={lx > 0 ? -8 : 8}
+                y="-8"
+                fill="#fef08a"
+                fontSize="10"
+                fontWeight="600"
+                fontFamily="sans-serif"
+                textAnchor={lx > 0 ? (isFlippedHorizontal ? 'start' : 'end') : (isFlippedHorizontal ? 'end' : 'start')}
+                transform={isFlippedHorizontal ? 'scale(-1, 1)' : undefined}
+                style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
+              >
+                Light {Math.round(normAngle)}°
+              </text>
+            </g>
+          </g>
+        </g>
+      )}
+    </g>
   );
 };

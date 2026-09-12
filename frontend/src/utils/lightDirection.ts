@@ -97,8 +97,8 @@ export function calculateTerminatorLine(
 export function setLightAngle(
   asaro: DrawingMethodState['asaro'],
   angleDeg: number,
-  width: number,
-  height: number,
+  width: number = 800,
+  height: number = 1000,
   source: LightDirectionSource = 'manual',
   centerPoint?: Point2D,
 ): DrawingMethodState['asaro'] {

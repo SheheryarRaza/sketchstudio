@@ -236,7 +236,14 @@ export default function StudioHomePage() {
     }
 
     handleEstimateLightDirection();
-  }, [project.imageSrc, loadedImageEl, project.histogram.status, handleEstimateLightDirection]);
+  }, [
+    project.imageSrc,
+    project.imageWidth,
+    project.imageHeight,
+    loadedImageEl,
+    project.histogram.status,
+    handleEstimateLightDirection,
+  ]);
 
   // Restore calibration, grid, and paper mapping preferences from localStorage on mount
   useEffect(() => {
@@ -560,6 +567,8 @@ export default function StudioHomePage() {
                   onRetryLandmarks={() => setLandmarksRetryTick((t) => t + 1)}
                   onEstimateLightDirection={handleEstimateLightDirection}
                   isEstimatingLight={isEstimatingLight}
+                  imageWidth={project.imageWidth}
+                  imageHeight={project.imageHeight}
                 />
               )}
 
