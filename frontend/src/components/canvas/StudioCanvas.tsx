@@ -41,6 +41,19 @@ import {
 import type { GestureSessionState } from '../../types/gesture';
 import { GestureTimerBar } from '../studio/GestureTimerBar';
 import { GestureCompleteOverlay } from '../studio/GestureCompleteOverlay';
+import { EdgeQualityOverlay } from './EdgeQualityOverlay';
+import { EdgeQualityToolbar } from '../studio/EdgeQualityToolbar';
+import {
+  fetchSuggestedEdges,
+  scaleEdgeSegmentsToImageSpace,
+  generateFallbackEdgeSegments,
+} from '../../utils/analysisApi';
+import {
+  toggleEdgeQualityEnabled,
+  createInitialEdgeQualityState,
+} from '../../utils/edgeQuality';
+import type { EdgeQualitySegment } from '../../types/edgeQuality';
+import { Activity } from 'lucide-react';
 
 interface StudioCanvasProps {
   project: ProjectState;
@@ -380,7 +393,60 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     onUpdateProject(toggleFlipHorizontal);
   }, [onUpdateProject]);
 
-  // One-key keyboard shortcut ('h' or 'f') to mirror the Reference Image horizontally (#45)
+  // Toggle Edge Quality Map mode (#47)
+  const handleToggleEdgeQuality = useCallback(() => {
+    onUpdateProject((prev) => ({
+      ...prev,
+      edgeQuality: toggleEdgeQualityEnabled(prev.edgeQuality || createInitialEdgeQualityState()),
+    }));
+  }, [onUpdateProject]);
+
+  const [isLoadingEdgeSuggestions, setIsLoadingEdgeSuggestions] = useState(false);
+
+  const handleSuggestEdges = useCallback(async () => {
+    if (!loadedImage || !project.imageSrc) return;
+    setIsLoadingEdgeSuggestions(true);
+    try {
+      let suggested: EdgeQualitySegment[];
+      try {
+        const raw = await fetchSuggestedEdges(loadedImage, renderSize);
+        suggested = scaleEdgeSegmentsToImageSpace(raw, renderSize).map((s) => ({
+          ...s,
+          source: 'detected' as const,
+        }));
+      } catch {
+        suggested = generateFallbackEdgeSegments(
+          project.imageWidth || 600,
+          project.imageHeight || 800,
+          project.landmarks?.status === 'ready' ? project.landmarks.data : undefined
+        );
+      }
+
+      onUpdateProject((prev) => {
+        const currentEq = prev.edgeQuality || createInitialEdgeQualityState();
+        return {
+          ...prev,
+          edgeQuality: {
+            ...currentEq,
+            segments: [...currentEq.segments, ...suggested],
+            selectedSegmentId: suggested[0]?.id || null,
+          },
+        };
+      });
+    } finally {
+      setIsLoadingEdgeSuggestions(false);
+    }
+  }, [
+    loadedImage,
+    project.imageSrc,
+    project.imageWidth,
+    project.imageHeight,
+    project.landmarks,
+    renderSize,
+    onUpdateProject,
+  ]);
+
+  // Keyboard shortcuts: 'h' for flip horizontal, 'e' for edge quality map
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -400,12 +466,16 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         if (!project.imageSrc) return;
         e.preventDefault();
         handleToggleFlipHorizontal();
+      } else if (e.key === 'e' || e.key === 'E') {
+        if (!project.imageSrc) return;
+        e.preventDefault();
+        handleToggleEdgeQuality();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [project.imageSrc, handleToggleFlipHorizontal]);
+  }, [project.imageSrc, handleToggleFlipHorizontal, handleToggleEdgeQuality]);
 
   // Zoom with Wheel
   const handleWheel = (e: React.WheelEvent) => {
@@ -583,6 +653,24 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
 
           <div className="w-px h-4 bg-studio-800 mx-1" />
 
+          {/* Edge Quality Map toggle button (#47) */}
+          <button
+            onClick={handleToggleEdgeQuality}
+            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 font-medium ${
+              project.edgeQuality?.enabled
+                ? 'bg-rose-500 text-white font-bold shadow-sm'
+                : 'hover:bg-studio-800 text-slate-300 hover:text-white'
+            }`}
+            title="Edge quality map: classify hard, soft, and lost edges (E)"
+            aria-label="Edge quality map"
+            aria-pressed={Boolean(project.edgeQuality?.enabled)}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span>Edges</span>
+          </button>
+
+          <div className="w-px h-4 bg-studio-800 mx-1" />
+
           {/* Gesture study timer and study log button (#46) */}
           <button
             onClick={onOpenStudyLog}
@@ -683,6 +771,17 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
           onOpenStudyLog={onOpenStudyLog || (() => {})}
           onSaveNote={onSaveGestureNote || (() => {})}
           onDismiss={onDismissGestureOverlay}
+        />
+      )}
+
+      {/* Floating Edge Quality Toolbar (#47) */}
+      {Boolean(project.imageSrc) && project.edgeQuality?.enabled && (
+        <EdgeQualityToolbar
+          state={project.edgeQuality}
+          onChange={(newEq) => onUpdateProject((prev) => ({ ...prev, edgeQuality: newEq }))}
+          onSuggestEdges={handleSuggestEdges}
+          isLoadingSuggestions={isLoadingEdgeSuggestions}
+          onClose={handleToggleEdgeQuality}
         />
       )}
 
@@ -787,6 +886,15 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                     },
                   }))
                 }
+              />
+
+              <EdgeQualityOverlay
+                width={project.imageWidth || 600}
+                height={project.imageHeight || 800}
+                state={project.edgeQuality || createInitialEdgeQualityState()}
+                onChange={(edgeQuality) => onUpdateProject(prev => ({ ...prev, edgeQuality }))}
+                isDimmed={project.isolation.kind !== 'none'}
+                isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
               />
             </>
           )}

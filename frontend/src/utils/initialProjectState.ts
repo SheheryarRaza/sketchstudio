@@ -3,6 +3,7 @@ import { generateDefaultLayerMeta } from './pencilGrades';
 import { generateDefaultCutPoints } from './cutPoints';
 import { DEFAULT_VALUE_FAMILY_FLOORS } from './tonalDecision';
 import { CONSTRUCTION_INK, TRANSFER_GRID_INK } from './inkColors';
+import { createInitialEdgeQualityState } from './edgeQuality';
 
 export const INITIAL_PROJECT_STATE: ProjectState = {
   title: 'Classical Portrait Study',
@@ -100,6 +101,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   ghostOpacity: 0.18,
   valueFamilyFloors: DEFAULT_VALUE_FAMILY_FLOORS,
   cutPointSource: 'default',
+  edgeQuality: createInitialEdgeQualityState(),
   histogram: { status: 'idle' },
   landmarks: { status: 'idle' },
 };

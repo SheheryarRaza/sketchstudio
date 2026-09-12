@@ -27,3 +27,16 @@ async def extract_edges(
     contents = await file.read()
     edge_png = CVService.extract_contour_edges(contents, low_thresh, high_thresh)
     return Response(content=edge_png, media_type="image/png")
+
+@router.post("/suggest-edges")
+async def suggest_edges(
+    file: UploadFile = File(...),
+    low_thresh: int = Query(50, ge=1, le=254),
+    high_thresh: int = Query(150, ge=1, le=255),
+    max_segments: int = Query(20, ge=1, le=50)
+):
+    """Detect candidate edge segments from Reference Image contours for edge quality classification."""
+    contents = await file.read()
+    segments = CVService.suggest_edge_segments(contents, low_thresh, high_thresh, max_segments=max_segments)
+    return segments
+

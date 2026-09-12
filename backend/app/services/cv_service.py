@@ -159,6 +159,55 @@ class CVService:
         return buffer.tobytes()
 
     @staticmethod
+    def suggest_edge_segments(
+        image_bytes: bytes,
+        low_threshold: int = 50,
+        high_threshold: int = 150,
+        min_length: int = 30,
+        max_segments: int = 20,
+    ) -> list[dict]:
+        """Detect candidate edge polylines from image contours for edge quality classification."""
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError("Could not decode image")
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.Canny(blurred, low_threshold, high_threshold)
+
+        contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
+
+        valid_contours = [c for c in contours if cv2.arcLength(c, False) >= min_length]
+        valid_contours.sort(key=lambda c: cv2.arcLength(c, False), reverse=True)
+
+        segments = []
+        for i, contour in enumerate(valid_contours[:max_segments]):
+            arc_len = cv2.arcLength(contour, False)
+            epsilon = max(0.015 * arc_len, 2.5)
+            approx = cv2.approxPolyDP(contour, epsilon, False)
+            if len(approx) < 2:
+                continue
+
+            pts = []
+            for j, p in enumerate(approx):
+                pt = p[0]
+                pts.append({
+                    "id": f"p-{i}-{j}",
+                    "x": int(pt[0]),
+                    "y": int(pt[1]),
+                })
+
+            segments.append({
+                "id": f"suggested-edge-{i + 1}",
+                "quality": "hard",
+                "points": pts,
+                "label": f"Contour {i + 1}",
+            })
+
+        return segments
+
+    @staticmethod
     def _symmetric_jaw_temple(center_x: int, center_y: int, radius: int) -> dict:
         """Jaw and temple anchors: proportional to face radius, never literal keypoints
         in any face detector (classical or DNN), so shared by both construction paths."""
