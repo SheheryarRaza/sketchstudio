@@ -11,6 +11,7 @@ export interface MethodGuideStep {
 export interface DrawingMethodInfo {
   type: DrawingMethodType;
   title: string;
+  shortLabel: string;
   creator: string;
   era: string;
   shortSummary: string;
@@ -25,6 +26,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   none: {
     type: 'none',
     title: 'Freehand / No Overlay',
+    shortLabel: 'Freehand',
     creator: 'Direct Observation',
     era: 'Universal',
     shortSummary: 'Unobstructed reference view without structural overlays.',
@@ -45,6 +47,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   loomis: {
     type: 'loomis',
     title: 'Loomis Method',
+    shortLabel: 'Loomis',
     creator: 'Andrew Loomis',
     era: '1943 (Fun With a Pencil / Figure Drawing For All It\'s Worth)',
     shortSummary: '3D spherical cranium construction with sliced sides, brow line cross, and Rule of Thirds facial proportions.',
@@ -95,6 +98,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   reilly: {
     type: 'reilly',
     title: 'Reilly Abstraction / Rhythms',
+    shortLabel: 'Reilly',
     creator: 'Frank J. Reilly',
     era: 'Art Students League of New York (1930s-1960s)',
     shortSummary: 'Flowing harmonic rhythm lines connecting facial landmarks into a graceful continuous structural web.',
@@ -144,6 +148,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   bargue: {
     type: 'bargue',
     title: 'Charles Bargue / Sight-Size Block-In',
+    shortLabel: 'Bargue',
     creator: 'Charles Bargue & Jean-Léon Gérôme',
     era: '1866 (Cours de Dessin - French Academic Method)',
     shortSummary: 'Envelope bounding polygons, vertical plumb lines, horizontal levels, and straight-line angular contour reduction.',
@@ -192,6 +197,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   asaro: {
     type: 'asaro',
     title: 'Asaro Head / Planar Analysis',
+    shortLabel: 'Asaro',
     creator: 'John Asaro',
     era: '1976 (Planes of the Head)',
     shortSummary: 'Low-poly 3D geometric facet breakdown of the facial planes to analyze light direction and form turning.',
@@ -240,6 +246,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   triangulation: {
     type: 'triangulation',
     title: 'Comparative Measurement & Triangulation',
+    shortLabel: 'Comparative',
     creator: 'Atelier Academies',
     era: 'Classical Academic Tradition',
     shortSummary: 'Using a base unit (e.g. eye-width or head height) with calipers to triangulate geometric distances and angles.',
@@ -289,6 +296,7 @@ export const DRAWING_METHODS_DATABASE: Record<DrawingMethodType, DrawingMethodIn
   harmonic: {
     type: 'harmonic',
     title: 'Harmonic Armature & Dynamic Symmetry',
+    shortLabel: 'Harmonic',
     creator: 'Jay Hambidge / Classical Greek Geometry',
     era: '1920 (The Elements of Dynamic Symmetry)',
     shortSummary: '14-line diagonal network, reciprocal diagonals, and Golden Ratio root rectangle alignments.',
