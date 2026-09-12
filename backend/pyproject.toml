@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.141.1",
+    "mediapipe>=1.0.1",
     "numpy>=2.5.3",
     "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
@@ -14,3 +15,10 @@ dependencies = [
     "reportlab>=5.0.1",
     "uvicorn>=0.52.4",
 ]
+
+[tool.uv]
+# mediapipe pulls in the GUI-linked opencv-contrib-python, which collides with our
+# own opencv-python-headless (both install into the same cv2 package) and needs
+# X11/GTK system libs the Dockerfile doesn't install. mediapipe's Tasks API doesn't
+# need cv2 at all, so drop the requirement and keep the one opencv we actually ship.
+exclude-dependencies = ["opencv-contrib-python"]

@@ -1,13 +1,29 @@
 import cv2
 import numpy as np
+import mediapipe as mp
+from mediapipe.tasks.python import vision, BaseOptions
+from mediapipe.tasks.python.vision import FaceLandmarkerOptions, RunningMode
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 from PIL import Image
 import io
 
 FACE_DETECTOR_MODEL_PATH = Path(__file__).resolve().parent.parent / "assets" / "face_detection_yunet_2026may.onnx"
+FACE_LANDMARKER_MODEL_PATH = Path(__file__).resolve().parent.parent / "assets" / "face_landmarker.task"
+
+# Indices into MediaPipe Face Landmarker's 478-point mesh (mediapipe.tasks.python.vision
+# .FaceLandmarksConnections). 152 is the chin tip; 172/397 sit at jaw-angle height;
+# 127/356 sit at temple height — both pairs picked from FACE_LANDMARKS_FACE_OVAL to land
+# at roughly the same height this service used to guess proportionally. Left/right isn't
+# assumed from the index itself: each pair is sorted by x so the smaller-x point always
+# becomes the "left" (image-left) anchor, matching this codebase's convention.
+_JAW_LANDMARKS = (172, 397)
+_TEMPLE_LANDMARKS = (127, 356)
+_CHIN_LANDMARK = 152
+_BROW_LANDMARKS = (46, 52, 53, 55, 63, 65, 66, 70, 105, 107, 276, 282, 283, 285, 293, 295, 296, 300, 334, 336)
 
 _face_detector = None
+_face_landmarker = None
 
 
 def _get_face_detector() -> cv2.FaceDetectorYN:
@@ -25,6 +41,20 @@ def _get_face_detector() -> cv2.FaceDetectorYN:
             top_k=5000,
         )
     return _face_detector
+
+
+def _get_face_landmarker() -> vision.FaceLandmarker:
+    """Lazily loads and caches the MediaPipe Face Landmarker (CPU, single face, static image)."""
+    global _face_landmarker
+    if _face_landmarker is None:
+        _face_landmarker = vision.FaceLandmarker.create_from_options(
+            FaceLandmarkerOptions(
+                base_options=BaseOptions(model_asset_path=str(FACE_LANDMARKER_MODEL_PATH)),
+                running_mode=RunningMode.IMAGE,
+                num_faces=1,
+            )
+        )
+    return _face_landmarker
 
 
 class DetectedFace(NamedTuple):
@@ -146,35 +176,85 @@ class CVService:
         }
 
     @staticmethod
-    def _construction_from_detection(face: DetectedFace) -> dict:
-        """Anchors built from real detected eye/nose/mouth keypoints, with bbox-derived
-        geometry for temple/jaw."""
+    def _mesh_contour_anchors(image_rgb: np.ndarray) -> Optional[dict]:
+        """Runs MediaPipe Face Landmarker over an already-YuNet-detected face and returns
+        pixel-space jaw/temple/chin/brow anchors from the real contour mesh, or None if
+        the landmarker itself couldn't find a face (caller falls back to bbox geometry)."""
+        h, w = image_rgb.shape[:2]
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
+        result = _get_face_landmarker().detect(mp_image)
+        if not result.face_landmarks:
+            return None
+
+        mesh = result.face_landmarks[0]
+
+        def point(index: int) -> tuple:
+            landmark = mesh[index]
+            return (landmark.x * w, landmark.y * h)
+
+        left_jaw, right_jaw = sorted((point(_JAW_LANDMARKS[0]), point(_JAW_LANDMARKS[1])), key=lambda p: p[0])
+        left_temple, right_temple = sorted(
+            (point(_TEMPLE_LANDMARKS[0]), point(_TEMPLE_LANDMARKS[1])), key=lambda p: p[0]
+        )
+        chin_x, chin_y = point(_CHIN_LANDMARK)
+        brow_line_y = sum(point(i)[1] for i in _BROW_LANDMARKS) / len(_BROW_LANDMARKS)
+
+        return {
+            "leftJaw": {"x": int(left_jaw[0]), "y": int(left_jaw[1])},
+            "rightJaw": {"x": int(right_jaw[0]), "y": int(right_jaw[1])},
+            "leftTemple": {"x": int(left_temple[0]), "y": int(left_temple[1])},
+            "rightTemple": {"x": int(right_temple[0]), "y": int(right_temple[1])},
+            "jawWidth": int(right_jaw[0] - left_jaw[0]),
+            "chin": {"x": int(chin_x), "y": int(chin_y)},
+            "browLineY": int(brow_line_y),
+        }
+
+    @staticmethod
+    def _construction_from_detection(face: DetectedFace, mesh_anchors: Optional[dict]) -> dict:
+        """Anchors built from real detected eye/nose/mouth keypoints. Jaw/temple/chin/brow
+        come from the MediaPipe contour mesh when available, falling back to the previous
+        bbox-proportional geometry when the mesh landmarker couldn't find a face."""
         center_x = int(face.x + face.w / 2)
         center_y = int((face.right_eye[1] + face.left_eye[1]) / 2)
         radius = int(face.w * 0.5)
-        chin_y = int(face.y + face.h)
         nose_x, nose_y = face.nose_tip
         mouth_x = int((face.right_mouth[0] + face.left_mouth[0]) / 2)
         mouth_y = int((face.right_mouth[1] + face.left_mouth[1]) / 2)
+
+        if mesh_anchors is not None:
+            jaw_temple = {
+                "leftJaw": mesh_anchors["leftJaw"],
+                "rightJaw": mesh_anchors["rightJaw"],
+                "leftTemple": mesh_anchors["leftTemple"],
+                "rightTemple": mesh_anchors["rightTemple"],
+            }
+            jaw_width = mesh_anchors["jawWidth"]
+            chin_x, chin_y = mesh_anchors["chin"]["x"], mesh_anchors["chin"]["y"]
+            brow_line_y = mesh_anchors["browLineY"]
+        else:
+            jaw_temple = CVService._symmetric_jaw_temple(center_x, center_y, radius)
+            jaw_width = int(radius * 0.9)
+            chin_x, chin_y = center_x, int(face.y + face.h)
+            brow_line_y = center_y
 
         return {
             "loomis": {
                 "center": {"x": center_x, "y": center_y},
                 "radius": radius,
-                "browLineY": center_y,
+                "browLineY": brow_line_y,
                 "noseLineY": int(nose_y),
                 "chinY": chin_y,
-                "jawWidth": int(radius * 0.9),
+                "jawWidth": jaw_width,
                 "tiltAngle": 0,
             },
             "reilly": {
-                "browCenter": {"x": center_x, "y": center_y - 10},
+                "browCenter": {"x": center_x, "y": brow_line_y - 10},
                 "noseTip": {"x": int(nose_x), "y": int(nose_y)},
                 "mouthCenter": {"x": mouth_x, "y": mouth_y},
-                "chinBottom": {"x": center_x, "y": chin_y},
+                "chinBottom": {"x": chin_x, "y": chin_y},
                 "leftEye": {"x": int(face.right_eye[0]), "y": int(face.right_eye[1])},
                 "rightEye": {"x": int(face.left_eye[0]), "y": int(face.left_eye[1])},
-                **CVService._symmetric_jaw_temple(center_x, center_y, radius),
+                **jaw_temple,
             },
         }
 
@@ -195,7 +275,8 @@ class CVService:
 
         if faces is not None and len(faces) > 0:
             best_row = faces[np.argmax(faces[:, 14])]
-            construction = CVService._construction_from_detection(DetectedFace.from_row(best_row))
+            mesh_anchors = CVService._mesh_contour_anchors(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            construction = CVService._construction_from_detection(DetectedFace.from_row(best_row), mesh_anchors)
             return {"source": "detected", **construction}
 
         construction = CVService._proportional_construction(w, h)
