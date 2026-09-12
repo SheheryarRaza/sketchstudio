@@ -211,6 +211,7 @@ export interface ProjectState {
   viewMode: 'original' | 'valueStudy' | 'edges' | 'split' | 'posterized';
   splitPosition: number; // 0-100 percentage
   blurRadius: number; // in pixels, squint mode blur radius applied to canvas view
+  isFlippedHorizontal: boolean; // view-only horizontal mirror to catch symmetry/tilt errors
   isolation: IsolationTarget;
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
   valueFamilyFloors: ValueFamilyFloors;

@@ -10,6 +10,7 @@ interface GridOverlayProps {
   // Dims the grid to near-invisible while a Tonal Layer/Value Family is
   // isolated, so it stops competing with the isolated flat mask (issue #39).
   isDimmed?: boolean;
+  isFlippedHorizontal?: boolean;
 }
 
 export const GridOverlay: React.FC<GridOverlayProps> = ({
@@ -18,6 +19,7 @@ export const GridOverlay: React.FC<GridOverlayProps> = ({
   grid,
   paperMapping,
   isDimmed = false,
+  isFlippedHorizontal = false,
 }) => {
   if (!grid.enabled || width <= 0 || height <= 0 || !paperMapping.isDeclared) return null;
 
@@ -233,26 +235,44 @@ export const GridOverlay: React.FC<GridOverlayProps> = ({
 
       {grid.showLabels && grid.type === 'squares' && (
         <g className="font-mono font-bold text-xs fill-current" style={{ color: grid.lineColor }}>
-          {Array.from({ length: cols }).map((_, c) => (
-            <text
-              key={`col-${c}`}
-              x={c * cellPixelSize + 4}
-              y={14}
-              opacity="0.85"
-            >
-              {getColLetter(c)}
-            </text>
-          ))}
-          {Array.from({ length: rows }).map((_, r) => (
-            <text
-              key={`row-${r}`}
-              x={4}
-              y={r * cellPixelSize + 16}
-              opacity="0.85"
-            >
-              {r + 1}
-            </text>
-          ))}
+          {Array.from({ length: cols }).map((_, c) => {
+            const x = c * cellPixelSize + 4;
+            const y = 14;
+            return (
+              <text
+                key={`col-${c}`}
+                x={x}
+                y={y}
+                opacity="0.85"
+                style={
+                  isFlippedHorizontal
+                    ? { transform: 'scaleX(-1)', transformOrigin: `${x + 4}px ${y - 4}px` }
+                    : undefined
+                }
+              >
+                {getColLetter(c)}
+              </text>
+            );
+          })}
+          {Array.from({ length: rows }).map((_, r) => {
+            const x = 4;
+            const y = r * cellPixelSize + 16;
+            return (
+              <text
+                key={`row-${r}`}
+                x={x}
+                y={y}
+                opacity="0.85"
+                style={
+                  isFlippedHorizontal
+                    ? { transform: 'scaleX(-1)', transformOrigin: `${x + 4}px ${y - 4}px` }
+                    : undefined
+                }
+              >
+                {r + 1}
+              </text>
+            );
+          })}
         </g>
       )}
 

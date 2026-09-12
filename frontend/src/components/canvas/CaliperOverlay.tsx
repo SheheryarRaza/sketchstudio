@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import type { CaliperMeasurement, CalibrationProfile } from '../../types/studio';
 import { pxToMm } from '../../utils/physicalScale';
+import { mapPointerToNativeX } from '../../utils/flipHorizontal';
 
 interface CaliperOverlayProps {
   width: number;
@@ -12,6 +13,7 @@ interface CaliperOverlayProps {
   calibration: CalibrationProfile;
   onChange: (measurements: CaliperMeasurement[], baseUnit?: number) => void;
   active: boolean;
+  isFlippedHorizontal?: boolean;
 }
 
 export const CaliperOverlay: React.FC<CaliperOverlayProps> = ({
@@ -22,6 +24,7 @@ export const CaliperOverlay: React.FC<CaliperOverlayProps> = ({
   calibration,
   onChange,
   active,
+  isFlippedHorizontal = false,
 }) => {
   const [activeHandle, setActiveHandle] = useState<{ id: string; type: 'start' | 'end' } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -38,7 +41,7 @@ export const CaliperOverlay: React.FC<CaliperOverlayProps> = ({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!activeHandle || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(width, ((e.clientX - rect.left) / rect.width) * width));
+    const x = mapPointerToNativeX(e.clientX, rect, width, isFlippedHorizontal);
     const y = Math.max(0, Math.min(height, ((e.clientY - rect.top) / rect.height) * height));
 
     const updated = measurements.map((m) => {
@@ -123,6 +126,7 @@ export const CaliperOverlay: React.FC<CaliperOverlayProps> = ({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 className="font-mono text-xs font-bold fill-white"
+                style={isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
               >
                 {isBase ? `1.0 Unit (${distMm}mm)` : `${m.ratioToBaseUnit || 1}x (${distMm}mm)`}
               </text>
