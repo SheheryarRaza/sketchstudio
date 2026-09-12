@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import type { AtelierStage, ProjectState } from '../../types/studio';
-import { Upload, Ruler, BookOpen, Download, Compass, CheckCircle2 } from 'lucide-react';
+import { Upload, Ruler, BookOpen, Download, Compass } from 'lucide-react';
 
 interface TopStripProps {
   project: ProjectState;
@@ -58,7 +58,8 @@ export const TopStrip: React.FC<TopStripProps> = ({
               key={s.stage}
               onClick={() => onSelectStage(s.stage)}
               title={`${s.label} — ${s.goal} Pencils: ${s.pencils.join(', ')}`}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium shrink-0 ${
+              aria-label={`Stage ${s.stage}: ${s.label}`}
+              className={`group flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium shrink-0 transition-colors ${
                 isActive
                   ? 'bg-studio-accent text-slate-950 font-bold'
                   : isPassed
@@ -66,18 +67,26 @@ export const TopStrip: React.FC<TopStripProps> = ({
                   : 'text-slate-400 hover:bg-studio-850'
               }`}
             >
-              {isPassed ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <span
-                  className={`w-4 h-4 rounded-full flex items-center justify-center text-xs leading-none shrink-0 ${
-                    isActive ? 'bg-slate-950 text-white font-bold' : 'bg-studio-800 text-slate-400'
-                  }`}
-                >
-                  {s.stage}
-                </span>
-              )}
-              <span className="hidden lg:inline">{s.label}</span>
+              <span
+                className={`w-4 h-4 rounded-full flex items-center justify-center text-xs leading-none shrink-0 ${
+                  isActive
+                    ? 'bg-slate-950 text-white font-bold'
+                    : isPassed
+                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/50 font-semibold'
+                    : 'bg-studio-800 text-slate-400'
+                }`}
+              >
+                {s.stage}
+              </span>
+              <span
+                className={
+                  isActive
+                    ? 'inline'
+                    : 'hidden group-hover:inline group-focus-visible:inline'
+                }
+              >
+                {s.label}
+              </span>
             </button>
           );
         })}
