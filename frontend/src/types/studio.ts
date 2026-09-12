@@ -192,6 +192,8 @@ export interface DrawingMethodState {
   };
 }
 
+import type { EdgeQualityState } from './edgeQuality';
+
 export interface ProjectState {
   id?: string;
   title: string;
@@ -208,6 +210,7 @@ export interface ProjectState {
   calibration: CalibrationProfile;
   paperMapping: PaperMappingConfig;
   methods: DrawingMethodState;
+  edgeQuality?: EdgeQualityState;
   viewMode: 'original' | 'valueStudy' | 'edges' | 'split' | 'posterized';
   splitPosition: number; // 0-100 percentage
   blurRadius: number; // in pixels, squint mode blur radius applied to canvas view
@@ -219,3 +222,4 @@ export interface ProjectState {
   histogram: HistogramAnalysisState;
   landmarks: LandmarkAnalysisState;
 }
+

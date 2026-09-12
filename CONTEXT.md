@@ -34,6 +34,17 @@ _Avoid_: Solo, mute, focus
 One of the N−1 shared boundary values between N adjacent Tonal Layers in a Value Study. Moving a Cut Point moves both neighboring Tonal Layers' shared edge at once, so overlapping or gapped Tonal Layers are impossible to construct.
 _Avoid_: Threshold slider, band edge, max slider
 
+**Edge Quality Map**:
+The overlay and classification of contour and form boundaries on the Reference Image into distinct physical edge qualities (hard, soft, lost), guiding the artist's pencil pressure, blending, and lost-and-found contours.
+_Avoid_: Outline filter, edge detector, stroke style
+
+**Edge Quality**:
+The transition sharpness across an edge boundary:
+- **Hard Edge**: An abrupt, crisp boundary where two values meet with minimal transition (e.g., cast shadows, silhouette occlusions).
+- **Soft Edge**: A gradual transition across turning form, where value changes smoothly over a measurable distance (e.g., form shadows, rounded contours).
+- **Lost Edge**: A boundary where adjacent values match so closely that the edge disappears entirely, merging subject and background or adjacent forms.
+_Avoid_: Line thickness, blur level, stroke weight
+
 ### Physical transfer
 
 **Pencil Grade Mapping**:

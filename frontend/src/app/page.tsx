@@ -33,6 +33,11 @@ import {
   deleteStudyLogEntry,
   clearStudyLog,
 } from '@/utils/studyLog';
+import {
+  deserializeEdgeQuality,
+  serializeEdgeQuality,
+  EDGE_QUALITY_STORAGE_KEY,
+} from '@/utils/edgeQuality';
 
 // Sidebar section shown for each Atelier Workflow stage (issue #39): stage 1 is
 // Paper Mapping + Transfer Grid, stage 2 is Drawing Method + Anchor Placement,
@@ -162,19 +167,33 @@ export default function StudioHomePage() {
       const savedCalib = localStorage.getItem('sketchstudio_calibration_v1');
       const savedGrid = localStorage.getItem('sketchstudio_grid_v1');
       const savedPaperMapping = localStorage.getItem('sketchstudio_paper_mapping_v1');
+      const savedEdgeQuality = localStorage.getItem(EDGE_QUALITY_STORAGE_KEY);
 
-      if (savedCalib || savedGrid || savedPaperMapping) {
+      const parsedEdgeQuality = savedEdgeQuality ? deserializeEdgeQuality(savedEdgeQuality) : null;
+
+      if (savedCalib || savedGrid || savedPaperMapping || parsedEdgeQuality) {
         setProject((prev) => ({
           ...prev,
           calibration: savedCalib ? JSON.parse(savedCalib) : prev.calibration,
           grid: savedGrid ? { ...prev.grid, ...JSON.parse(savedGrid) } : prev.grid,
           paperMapping: savedPaperMapping ? JSON.parse(savedPaperMapping) : prev.paperMapping,
+          edgeQuality: parsedEdgeQuality || prev.edgeQuality,
         }));
       }
     } catch (e) {
       console.warn('Failed to load saved studio preferences from localStorage', e);
     }
   }, []);
+
+  // Persist edge quality marks to localStorage when updated (#47)
+  useEffect(() => {
+    if (!project.edgeQuality) return;
+    try {
+      localStorage.setItem(EDGE_QUALITY_STORAGE_KEY, serializeEdgeQuality(project.edgeQuality));
+    } catch (e) {
+      console.warn('Failed to persist edge quality to localStorage', e);
+    }
+  }, [project.edgeQuality]);
 
   // Persist calibration when updated
   const handleSaveCalibration = (calib: typeof INITIAL_PROJECT_STATE.calibration) => {

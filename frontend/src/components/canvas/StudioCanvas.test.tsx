@@ -196,3 +196,53 @@ test('StudioCanvas renders floating countdown timer bar when session is running'
   assert.match(html, /aria-label="Pause timer"/);
 });
 
+test('StudioCanvas renders Edges button in floating canvas toolbar when reference image is loaded', () => {
+  const html = renderCanvas({
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+  });
+
+  assert.match(html, /aria-label="Edge quality map"/);
+  assert.match(html, /aria-pressed="false"/);
+  assert.match(html, /title="[^"]*classify hard, soft, and lost edges[^"]*\(E\)/i);
+  assert.match(html, />\s*Edges\s*<\/span>/);
+});
+
+test('StudioCanvas renders EdgeQualityToolbar and EdgeQualityOverlay when edgeQuality is enabled', () => {
+  const project: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+    edgeQuality: {
+      ...INITIAL_PROJECT_STATE.edgeQuality!,
+      enabled: true,
+      segments: [
+        {
+          id: 'seg-test',
+          quality: 'hard',
+          points: [{ id: 'p1', x: 100, y: 100 }, { id: 'p2', x: 200, y: 200 }],
+          label: 'Test edge',
+        },
+      ],
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    <StudioCanvas
+      project={project}
+      onUpdateProject={noop}
+      onLoadImageFile={noop}
+      onLoadSampleImage={noop}
+    />
+  );
+
+  // Toolbar rendered
+  assert.match(html, /aria-label="Edge Quality Map Controls"/);
+  assert.match(html, /Suggest Edges/);
+  // Overlay rendered
+  assert.match(html, /stroke="#f43f5e"/i);
+});
+
+

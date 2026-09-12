@@ -145,3 +145,165 @@ export function scaleLandmarksToImageSpace(
     },
   };
 }
+
+import type { EdgeQualitySegment } from '../types/edgeQuality';
+
+/**
+ * Posts the display-capped Reference Image to the edge suggestion endpoint and
+ * returns detected contour polylines for edge quality classification.
+ */
+export async function fetchSuggestedEdges(
+  image: HTMLImageElement | HTMLCanvasElement,
+  size: RenderSize,
+): Promise<EdgeQualitySegment[]> {
+  const capped = await toDisplayCappedBlob(image, size);
+
+  const form = new FormData();
+  form.append('file', capped, 'reference.png');
+
+  let res: Response;
+  try {
+    res = await fetch('/api/cv/suggest-edges', { method: 'POST', body: form });
+  } catch {
+    throw new Error('Could not reach the analysis backend');
+  }
+
+  if (!res.ok) {
+    throw new Error(`Edge suggestion failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Rescales suggested edge segments from capped-image space onto native Reference Image pixel space.
+ */
+export function scaleEdgeSegmentsToImageSpace(
+  segments: EdgeQualitySegment[],
+  size: RenderSize,
+): EdgeQualitySegment[] {
+  const scale = size.scale;
+  return segments.map((seg) => ({
+    ...seg,
+    points: seg.points.map((pt) => ({
+      ...pt,
+      x: Math.round(pt.x / scale),
+      y: Math.round(pt.y / scale),
+    })),
+  }));
+}
+
+/**
+ * Generates initial candidate anatomical edge contours (jawline, cheekbone, chin shadow)
+ * anchored by detected landmarks or proportional fallback coordinates.
+ */
+export function generateFallbackEdgeSegments(
+  imageWidth: number,
+  imageHeight: number,
+  landmarks?: LandmarkStats,
+): EdgeQualitySegment[] {
+  const w = imageWidth || 600;
+  const h = imageHeight || 800;
+
+  if (landmarks && landmarks.reilly) {
+    const { leftJaw, rightJaw, chinBottom, leftTemple, rightTemple, noseTip } = landmarks.reilly;
+    const midJawX = Math.round((leftJaw.x + chinBottom.x) / 2);
+    const midJawY = Math.round((leftJaw.y + chinBottom.y) / 2);
+
+    return [
+      {
+        id: `fallback-edge-jaw-${Date.now()}-1`,
+        quality: 'hard',
+        label: 'Jaw contour (hard)',
+        points: [
+          { id: 'fb-j1', x: leftJaw.x, y: leftJaw.y },
+          { id: 'fb-j2', x: midJawX, y: midJawY },
+          { id: 'fb-j3', x: chinBottom.x, y: chinBottom.y },
+          { id: 'fb-j4', x: Math.round((rightJaw.x + chinBottom.x) / 2), y: Math.round((rightJaw.y + chinBottom.y) / 2) },
+          { id: 'fb-j5', x: rightJaw.x, y: rightJaw.y },
+        ],
+      },
+      {
+        id: `fallback-edge-cheek-${Date.now()}-2`,
+        quality: 'soft',
+        label: 'Cheekbone turn (soft)',
+        points: [
+          { id: 'fb-c1', x: leftTemple.x, y: leftTemple.y },
+          { id: 'fb-c2', x: Math.round(leftTemple.x + (leftJaw.x - leftTemple.x) * 0.5), y: Math.round((leftTemple.y + leftJaw.y) * 0.5) },
+          { id: 'fb-c3', x: Math.round((leftJaw.x + noseTip.x) / 2), y: Math.round((leftJaw.y + noseTip.y) / 2) },
+        ],
+      },
+      {
+        id: `fallback-edge-chinshadow-${Date.now()}-3`,
+        quality: 'hard',
+        label: 'Sub-mandibular cast shadow (hard)',
+        points: [
+          { id: 'fb-s1', x: Math.round(chinBottom.x - (rightJaw.x - leftJaw.x) * 0.25), y: Math.round(chinBottom.y + 25) },
+          { id: 'fb-s2', x: chinBottom.x, y: Math.round(chinBottom.y + 35) },
+          { id: 'fb-s3', x: Math.round(chinBottom.x + (rightJaw.x - leftJaw.x) * 0.25), y: Math.round(chinBottom.y + 25) },
+        ],
+      },
+      {
+        id: `fallback-edge-temple-${Date.now()}-4`,
+        quality: 'lost',
+        label: 'Hairline & temple merge (lost)',
+        points: [
+          { id: 'fb-t1', x: rightTemple.x, y: rightTemple.y },
+          { id: 'fb-t2', x: Math.round(rightTemple.x + 30), y: Math.round(rightTemple.y - 40) },
+          { id: 'fb-t3', x: Math.round(rightTemple.x + 10), y: Math.round(rightTemple.y - 80) },
+        ],
+      },
+    ];
+  }
+
+  // Proportional default fallback
+  const cx = Math.round(w * 0.5);
+  const cy = Math.round(h * 0.45);
+  const r = Math.round(Math.min(w, h) * 0.28);
+
+  return [
+    {
+      id: `fallback-edge-jaw-${Date.now()}-1`,
+      quality: 'hard',
+      label: 'Jaw contour (hard)',
+      points: [
+        { id: 'fb-j1', x: cx - Math.round(r * 0.7), y: cy + Math.round(r * 0.7) },
+        { id: 'fb-j2', x: cx - Math.round(r * 0.4), y: cy + Math.round(r * 1.1) },
+        { id: 'fb-j3', x: cx, y: cy + Math.round(r * 1.25) },
+        { id: 'fb-j4', x: cx + Math.round(r * 0.4), y: cy + Math.round(r * 1.1) },
+        { id: 'fb-j5', x: cx + Math.round(r * 0.7), y: cy + Math.round(r * 0.7) },
+      ],
+    },
+    {
+      id: `fallback-edge-cheek-${Date.now()}-2`,
+      quality: 'soft',
+      label: 'Cheekbone turn (soft)',
+      points: [
+        { id: 'fb-c1', x: cx - Math.round(r * 0.75), y: cy - Math.round(r * 0.4) },
+        { id: 'fb-c2', x: cx - Math.round(r * 0.5), y: cy + Math.round(r * 0.2) },
+        { id: 'fb-c3', x: cx - Math.round(r * 0.2), y: cy + Math.round(r * 0.5) },
+      ],
+    },
+    {
+      id: `fallback-edge-chinshadow-${Date.now()}-3`,
+      quality: 'hard',
+      label: 'Cast shadow (hard)',
+      points: [
+        { id: 'fb-s1', x: cx - Math.round(r * 0.35), y: cy + Math.round(r * 1.35) },
+        { id: 'fb-s2', x: cx, y: cy + Math.round(r * 1.45) },
+        { id: 'fb-s3', x: cx + Math.round(r * 0.35), y: cy + Math.round(r * 1.35) },
+      ],
+    },
+    {
+      id: `fallback-edge-temple-${Date.now()}-4`,
+      quality: 'lost',
+      label: 'Hairline merge (lost)',
+      points: [
+        { id: 'fb-t1', x: cx + Math.round(r * 0.75), y: cy - Math.round(r * 0.4) },
+        { id: 'fb-t2', x: cx + Math.round(r * 0.8), y: cy - Math.round(r * 0.7) },
+        { id: 'fb-t3', x: cx + Math.round(r * 0.6), y: cy - Math.round(r * 0.9) },
+      ],
+    },
+  ];
+}
+
