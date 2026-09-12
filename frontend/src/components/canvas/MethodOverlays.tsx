@@ -8,6 +8,9 @@ interface MethodOverlaysProps {
   height: number;
   methodState: DrawingMethodState;
   onChange: (newState: DrawingMethodState) => void;
+  // Dims the Drawing Method overlay to near-invisible while a Tonal Layer/Value
+  // Family is isolated, so it stops competing with the isolated flat mask (issue #39).
+  isDimmed?: boolean;
 }
 
 export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
@@ -15,6 +18,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
   height,
   methodState,
   onChange,
+  isDimmed = false,
 }) => {
   const { activeMethod, opacity, color, showAnchorPoints } = methodState;
   const [draggingPoint, setDraggingPoint] = useState<string | null>(null);
@@ -82,7 +86,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      style={{ opacity }}
+      style={{ opacity: isDimmed ? 0.12 : opacity }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >

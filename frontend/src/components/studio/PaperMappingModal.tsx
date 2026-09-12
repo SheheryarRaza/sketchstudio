@@ -90,7 +90,7 @@ export const PaperMappingModal: React.FC<PaperMappingModalProps> = ({
                   }`}
                 >
                   <div>{preset}</div>
-                  <div className="text-[9px] opacity-75 font-mono">
+                  <div className="text-xs opacity-75 font-mono">
                     {preset === 'Custom'
                       ? 'Enter dimensions'
                       : `${PAPER_PRESETS[preset].widthMm}×${PAPER_PRESETS[preset].heightMm}`}
@@ -102,7 +102,7 @@ export const PaperMappingModal: React.FC<PaperMappingModalProps> = ({
             {isCustom && (
               <div className="flex items-center gap-3 bg-studio-950 border border-studio-800 p-3 rounded-xl">
                 <label className="flex-1 flex flex-col gap-1">
-                  <span className="text-[10px] text-slate-400">Width (mm)</span>
+                  <span className="text-xs text-slate-400">Width (mm)</span>
                   <input
                     type="number"
                     min={50}
@@ -113,7 +113,7 @@ export const PaperMappingModal: React.FC<PaperMappingModalProps> = ({
                   />
                 </label>
                 <label className="flex-1 flex flex-col gap-1">
-                  <span className="text-[10px] text-slate-400">Height (mm)</span>
+                  <span className="text-xs text-slate-400">Height (mm)</span>
                   <input
                     type="number"
                     min={50}
@@ -141,7 +141,7 @@ export const PaperMappingModal: React.FC<PaperMappingModalProps> = ({
                   }`}
                 >
                   <span className="font-bold text-xs text-slate-200 block">{option.label}</span>
-                  <span className="text-[10px] text-slate-400 leading-tight">{option.description}</span>
+                  <span className="text-xs text-slate-400 leading-tight">{option.description}</span>
                 </button>
               ))}
             </div>

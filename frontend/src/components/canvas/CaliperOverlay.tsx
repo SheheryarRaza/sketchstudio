@@ -122,7 +122,7 @@ export const CaliperOverlay: React.FC<CaliperOverlayProps> = ({
                 y="0"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className="font-mono text-[10px] font-bold fill-white"
+                className="font-mono text-xs font-bold fill-white"
               >
                 {isBase ? `1.0 Unit (${distMm}mm)` : `${m.ratioToBaseUnit || 1}x (${distMm}mm)`}
               </text>

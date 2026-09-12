@@ -73,11 +73,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             >
               <div className="flex items-center justify-between">
                 <Printer className="w-5 h-5 text-studio-accent" />
-                <span className="text-[10px] font-mono text-studio-accent">Print Ready</span>
+                <span className="text-xs font-mono text-studio-accent">Print Ready</span>
               </div>
               <div>
                 <span className="font-bold text-slate-100 block">Printable Blank Grid</span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-xs text-slate-400">
                   {project.paperMapping.isDeclared
                     ? `Vector PDF grid template on ${project.paperMapping.paperPreset} paper.`
                     : 'Requires a declared Paper Mapping.'}
@@ -95,11 +95,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             >
               <div className="flex items-center justify-between">
                 <FileText className="w-5 h-5 text-amber-400" />
-                <span className="text-[10px] font-mono text-amber-400">Pencil Chart</span>
+                <span className="text-xs font-mono text-amber-400">Pencil Chart</span>
               </div>
               <div>
                 <span className="font-bold text-slate-100 block">Pencil Grade Study Guide</span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-xs text-slate-400">
                   Reference sheet with tonal layer breakdown & recommended 9H-9B pencils.
                 </span>
               </div>
@@ -127,7 +127,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         <div className="p-4 border-t border-studio-800 bg-studio-950/80 flex items-center justify-between gap-2">
           {downloadState.status === 'error' ? (
-            <span className="text-[10px] text-rose-400 max-w-xs">{downloadState.message}</span>
+            <span className="text-xs text-rose-400 max-w-xs">{downloadState.message}</span>
           ) : (
             <span />
           )}

@@ -5,6 +5,7 @@ import type { ValueLayerMeta, ProjectState, PencilHardness, IsolationTarget } fr
 import { generateDefaultLayerMeta, PENCIL_DATABASE } from '../../utils/pencilGrades';
 import { buildValueLayers, generateCutPointsFromHistogram, generateDefaultCutPoints, moveCutPoint } from '../../utils/cutPoints';
 import { buildValueFamilies, layersInFamily } from '../../utils/tonalDecision';
+import { CONSTRUCTION_INK } from '../../utils/inkColors';
 import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw, Wand2 } from 'lucide-react';
 
 interface ValueStudyPanelProps {
@@ -37,7 +38,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   onUpdateProject,
   onRetryHistogram,
 }) => {
-  const { layerMeta, cutPoints, numValueLayers, viewMode, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource } = project;
+  const { layerMeta, cutPoints, numValueLayers, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource } = project;
   const layers = buildValueLayers(layerMeta, cutPoints);
   const valueFamilies = buildValueFamilies(valueFamilyFloors);
 
@@ -111,53 +112,11 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           <Layers className="w-4 h-4 text-studio-accent" />
           <span>Tonal Value Breakdown</span>
         </div>
-        <span className="text-[10px] font-mono text-studio-400 bg-studio-850 px-2 py-0.5 rounded">
+        <span className="text-xs font-mono text-studio-400 bg-studio-850 px-2 py-0.5 rounded">
           {layers.length} Value Bands
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 bg-studio-950 p-1 rounded-xl border border-studio-800">
-        <button
-          onClick={() => onUpdateProject(p => ({ ...p, viewMode: 'original' }))}
-          className={`flex-1 py-1.5 rounded-lg text-center font-medium transition-all ${
-            viewMode === 'original'
-              ? 'bg-studio-800 text-white shadow'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Photo
-        </button>
-        <button
-          onClick={() => onUpdateProject(p => ({ ...p, viewMode: 'valueStudy' }))}
-          className={`flex-1 py-1.5 rounded-lg text-center font-medium transition-all ${
-            viewMode === 'valueStudy'
-              ? 'bg-studio-accent text-slate-950 font-bold shadow'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Value Study
-        </button>
-        <button
-          onClick={() => onUpdateProject(p => ({ ...p, viewMode: 'posterized' }))}
-          className={`flex-1 py-1.5 rounded-lg text-center font-medium transition-all ${
-            viewMode === 'posterized'
-              ? 'bg-amber-500 text-slate-950 font-bold shadow'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Posterize
-        </button>
-        <button
-          onClick={() => onUpdateProject(p => ({ ...p, viewMode: 'edges' }))}
-          className={`flex-1 py-1.5 rounded-lg text-center font-medium transition-all ${
-            viewMode === 'edges'
-              ? 'bg-emerald-500 text-slate-950 font-bold shadow'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Edges
-        </button>
-      </div>
 
       {project.imageSrc && (
         <div className="flex flex-col gap-1.5">
@@ -202,7 +161,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                   x2={histogram.data.deepDarkThreshold}
                   y1="0"
                   y2="40"
-                  stroke="#f59e0b"
+                  stroke="#fbbf24"
                   strokeWidth="1"
                   vectorEffect="non-scaling-stroke"
                 />
@@ -211,12 +170,12 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                   x2={histogram.data.highlightThreshold}
                   y1="0"
                   y2="40"
-                  stroke="#38bdf8"
+                  stroke={CONSTRUCTION_INK}
                   strokeWidth="1"
                   vectorEffect="non-scaling-stroke"
                 />
               </svg>
-              <div className="flex justify-between text-[10px] font-mono">
+              <div className="flex justify-between text-xs font-mono">
                 <span className="text-amber-400">Deep Dark ≤ {histogram.data.deepDarkThreshold}</span>
                 <span className="text-slate-500">Median {histogram.data.medianLuminance}</span>
                 <span className="text-studio-accent">Highlight ≥ {histogram.data.highlightThreshold}</span>
@@ -258,13 +217,13 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           ))}
         </div>
         {cutPointSource === 'seeded' && (
-          <span className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+          <span className="flex items-center gap-1.5 text-xs text-emerald-400">
             <Wand2 className="w-3 h-3" />
             Cut Points seeded from this photo
           </span>
         )}
         {cutPointSource === 'manual' && (
-          <span className="flex items-center gap-1.5 text-[10px] text-studio-gold">
+          <span className="flex items-center gap-1.5 text-xs text-studio-gold">
             <SlidersHorizontal className="w-3 h-3" />
             Cut Points manually adjusted
           </span>
@@ -280,7 +239,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           {isolation.kind !== 'none' && (
             <button
               onClick={() => onUpdateProject(p => ({ ...p, isolation: { kind: 'none' } }))}
-              className="text-[10px] font-bold text-studio-accent hover:text-white uppercase tracking-wide"
+              className="text-xs font-bold text-studio-accent hover:text-white uppercase tracking-wide"
             >
               Show All
             </button>
@@ -305,7 +264,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 }`}
               >
                 {family.name}
-                <span className="block text-[9px] font-mono opacity-70">{count}</span>
+                <span className="block text-xs font-mono opacity-70">{count}</span>
               </button>
             );
           })}
@@ -313,7 +272,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
 
         {isolation.kind !== 'none' && (
           <div className="flex flex-col gap-0.5 pt-1">
-            <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between text-xs text-slate-400 font-mono">
               <span>Reference underlay</span>
               <span className="text-studio-accent font-bold">{Math.round(ghostOpacity * 100)}%</span>
             </div>
@@ -360,7 +319,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => toggleIsolation(target)}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase transition-all ${
+                    className={`px-1.5 py-0.5 rounded text-xs font-mono font-bold uppercase transition-all ${
                       isolated
                         ? 'bg-amber-400 text-slate-950'
                         : 'bg-studio-800 text-slate-400 hover:text-slate-200'
@@ -385,17 +344,18 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              <div className="flex justify-between text-xs text-slate-400 font-mono">
                 <span>Min: {layer.minThreshold}</span>
                 <span>Max: {layer.maxThreshold}</span>
               </div>
 
               <div className="flex items-center justify-between pt-1 border-t border-studio-800/60">
-                <span className="text-[10px] text-slate-400">Pencil Grade:</span>
+                <span className="text-slate-400">Pencil Grade:</span>
                 <select
                   value={layer.pencilGrade}
                   onChange={(e) => handleLayerMetaChange(idx, { pencilGrade: e.target.value as PencilHardness })}
-                  className="bg-studio-800 border border-studio-700 text-studio-accent font-mono font-bold text-[10px] px-2 py-0.5 rounded cursor-pointer"
+                  title={`${PENCIL_DATABASE[layer.pencilGrade].name} — ${PENCIL_DATABASE[layer.pencilGrade].category}\nUsage: ${PENCIL_DATABASE[layer.pencilGrade].recommendedFor}\nTechnique: ${PENCIL_DATABASE[layer.pencilGrade].strokeAdvice}`}
+                  className="bg-studio-800 border border-studio-700 text-studio-accent font-mono font-bold px-2 py-0.5 rounded cursor-pointer"
                 >
                   {PENCIL_OPTIONS.map((p) => (
                     <option key={p} value={p}>
@@ -408,7 +368,7 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
 
             {idx < layers.length - 1 && (
               <div className="flex flex-col gap-0.5 px-1">
-                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <div className="flex justify-between text-xs text-slate-400 font-mono">
                   <span>Cut Point</span>
                   <span className="text-studio-accent font-bold">{cutPoints[idx]}</span>
                 </div>
