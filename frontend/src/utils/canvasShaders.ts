@@ -20,6 +20,7 @@ export function renderValueStudyOnCanvas(
   isolation: IsolationTarget = { kind: 'none' },
   ghostOpacity: number = 0.18,
   familyFloors: ValueFamilyFloors = DEFAULT_VALUE_FAMILY_FLOORS,
+  blurRadius: number = 0,
 ) {
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
@@ -34,6 +35,9 @@ export function renderValueStudyOnCanvas(
   const tempCtx = tempCanvas.getContext('2d');
   if (!tempCtx) return;
 
+  if (blurRadius > 0) {
+    tempCtx.filter = `blur(${blurRadius}px)`;
+  }
   tempCtx.drawImage(sourceImage, 0, 0, width, height);
 
   if (viewMode === 'original') {
@@ -84,8 +88,15 @@ export function renderValueStudyOnCanvas(
   } catch (err) {
     // If canvas is tainted by external CORS, fallback gracefully to filter rendering
     ctx.save();
+    const filters: string[] = [];
     if (viewMode === 'valueStudy' || viewMode === 'posterized') {
-      ctx.filter = 'grayscale(100%) contrast(120%)';
+      filters.push('grayscale(100%) contrast(120%)');
+    }
+    if (blurRadius > 0) {
+      filters.push(`blur(${blurRadius}px)`);
+    }
+    if (filters.length > 0) {
+      ctx.filter = filters.join(' ');
     }
     ctx.drawImage(sourceImage, 0, 0, width, height);
     ctx.restore();
