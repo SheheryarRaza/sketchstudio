@@ -7,6 +7,9 @@ interface GridOverlayProps {
   height: number;
   grid: GridConfig;
   paperMapping: PaperMappingConfig;
+  // Dims the grid to near-invisible while a Tonal Layer/Value Family is
+  // isolated, so it stops competing with the isolated flat mask (issue #39).
+  isDimmed?: boolean;
 }
 
 export const GridOverlay: React.FC<GridOverlayProps> = ({
@@ -14,6 +17,7 @@ export const GridOverlay: React.FC<GridOverlayProps> = ({
   height,
   grid,
   paperMapping,
+  isDimmed = false,
 }) => {
   if (!grid.enabled || width <= 0 || height <= 0 || !paperMapping.isDeclared) return null;
 
@@ -42,7 +46,7 @@ export const GridOverlay: React.FC<GridOverlayProps> = ({
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      style={{ opacity: grid.opacity }}
+      style={{ opacity: isDimmed ? 0.12 : grid.opacity }}
     >
       <defs>
         <pattern
@@ -228,7 +232,7 @@ export const GridOverlay: React.FC<GridOverlayProps> = ({
       )}
 
       {grid.showLabels && grid.type === 'squares' && (
-        <g className="font-mono font-bold text-[11px] fill-current" style={{ color: grid.lineColor }}>
+        <g className="font-mono font-bold text-xs fill-current" style={{ color: grid.lineColor }}>
           {Array.from({ length: cols }).map((_, c) => (
             <text
               key={`col-${c}`}

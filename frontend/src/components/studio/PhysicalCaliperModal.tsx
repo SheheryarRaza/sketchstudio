@@ -98,7 +98,7 @@ export const PhysicalCaliperModal: React.FC<PhysicalCaliperModalProps> = ({
                 <span className="font-mono text-studio-accent font-bold text-xs">
                   85.60 mm (Credit Card)
                 </span>
-                <span className="font-mono text-[10px] text-slate-400">
+                <span className="font-mono text-xs text-slate-400">
                   {Math.round(cardPixelWidth)} Screen Pixels
                 </span>
               </div>

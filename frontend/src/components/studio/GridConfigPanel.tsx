@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { GridConfig, GridType, PaperMappingConfig } from '../../types/studio';
+import { TRANSFER_GRID_INK } from '../../utils/inkColors';
 import { Grid, Eye, EyeOff, FileStack } from 'lucide-react';
 
 interface GridConfigPanelProps {
@@ -57,7 +58,7 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
       {!paperMapping.isDeclared && (
         <button
           onClick={onOpenPaperMapping}
-          className="flex items-center gap-2 p-3 rounded-xl bg-studio-gold/10 border border-studio-gold/30 text-studio-gold hover:bg-studio-gold/20 transition-all text-left animate-pulse"
+          className="flex items-center gap-2 p-3 rounded-xl bg-studio-gold/10 border border-studio-gold/30 text-studio-gold hover:bg-studio-gold/20 transition-all text-left"
         >
           <FileStack className="w-4 h-4 shrink-0" />
           <span className="font-semibold">
@@ -67,7 +68,7 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Grid Pattern Style
         </span>
         <div className="grid grid-cols-2 gap-1.5">
@@ -82,7 +83,7 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
               }`}
             >
               <span className="font-bold text-xs text-slate-200">{style.label}</span>
-              <span className="text-[9px] text-slate-400 leading-tight line-clamp-1">
+              <span className="text-xs text-slate-400 leading-tight line-clamp-1">
                 {style.description}
               </span>
             </button>
@@ -106,7 +107,7 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
           onChange={(e) => onChange({ cellSizeMm: parseInt(e.target.value) })}
           className="w-full h-1 bg-studio-800 rounded-lg cursor-pointer"
         />
-        <div className="flex items-center justify-between text-[10px] text-slate-400">
+        <div className="flex items-center justify-between text-xs text-slate-400">
           <span>5mm (Fine)</span>
           <button
             onClick={onOpenPaperMapping}
@@ -168,7 +169,7 @@ export const GridConfigPanel: React.FC<GridConfigPanelProps> = ({
         <div className="flex items-center justify-between pt-2 border-t border-studio-800/60">
           <span className="text-slate-300">Line Color</span>
           <div className="flex items-center gap-1.5">
-            {['#38bdf8', '#f59e0b', '#10b981', '#ffffff', '#f43f5e', '#a855f7'].map((c) => (
+            {[TRANSFER_GRID_INK, '#a8cfe3', '#ffffff', '#9fd6c1', '#c9cdd3', '#5a8fb0'].map((c) => (
               <button
                 key={c}
                 onClick={() => onChange({ lineColor: c })}

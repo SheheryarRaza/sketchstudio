@@ -101,7 +101,7 @@ export const TeachingModeDrawer: React.FC<TeachingModeDrawerProps> = ({
                   key={idx}
                   className="bg-studio-900/80 border border-studio-800/80 p-3 rounded-xl text-xs text-slate-300 flex items-start gap-2.5"
                 >
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold flex items-center justify-center shrink-0 text-[10px]">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold flex items-center justify-center shrink-0 text-xs">
                     {idx + 1}
                   </span>
                   <span className="leading-relaxed">{rule}</span>
@@ -146,12 +146,12 @@ export const TeachingModeDrawer: React.FC<TeachingModeDrawerProps> = ({
                       </span>
                       <span className="font-bold text-slate-100 text-xs">{step.title}</span>
                     </div>
-                    <span className="font-mono text-[10px] text-amber-400 bg-amber-950/50 border border-amber-800/40 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs text-amber-400 bg-amber-950/50 border border-amber-800/40 px-2 py-0.5 rounded">
                       Pencil: {step.pencilRecommendation}
                     </span>
                   </div>
                   <p className="text-slate-300 text-xs leading-relaxed">{step.description}</p>
-                  <div className="bg-studio-950 p-2 rounded-lg border border-studio-850 text-[11px] text-slate-400 flex items-start gap-1.5">
+                  <div className="bg-studio-950 p-2 rounded-lg border border-studio-850 text-xs text-slate-400 flex items-start gap-1.5">
                     <span className="text-emerald-400 font-bold shrink-0">Master Tip:</span>
                     <span>{step.artistTip}</span>
                   </div>

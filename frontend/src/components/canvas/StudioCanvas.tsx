@@ -19,8 +19,8 @@ import {
   Sparkles,
   Image as ImageIcon,
   Layers,
-  Ruler,
-  Compass,
+  Eye,
+  Check,
   Loader2,
   AlertTriangle,
   RefreshCw,
@@ -57,6 +57,21 @@ const SAMPLE_PORTRAITS = [
   },
 ];
 
+const RENDER_MODES: Array<{ mode: ProjectState['viewMode']; label: string; icon: React.ReactNode }> = [
+  { mode: 'original', label: 'Photo', icon: <ImageIcon className="w-3.5 h-3.5" /> },
+  { mode: 'valueStudy', label: 'Value Study', icon: <Layers className="w-3.5 h-3.5" /> },
+  { mode: 'posterized', label: 'Posterize', icon: <Layers className="w-3.5 h-3.5" /> },
+  { mode: 'edges', label: 'Edges', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { mode: 'split', label: 'Split Compare', icon: <SplitSquareVertical className="w-3.5 h-3.5" /> },
+];
+
+const BG_THEMES: Array<{ id: 'obsidian' | 'neutral' | 'toned' | 'white'; color: string; label: string }> = [
+  { id: 'obsidian', color: '#070a11', label: 'Obsidian Black' },
+  { id: 'neutral', color: '#2b2f38', label: '18% Neutral Grey' },
+  { id: 'toned', color: '#29221b', label: 'Toned Charcoal Paper' },
+  { id: 'white', color: '#f4f4f5', label: 'Drafting Light' },
+];
+
 export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   project,
   onUpdateProject,
@@ -75,6 +90,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [bgTheme, setBgTheme] = useState<'obsidian' | 'neutral' | 'toned' | 'white'>('obsidian');
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState<boolean>(false);
 
   // Edges view is backend-rendered (contour extraction), unlike the other shader
   // views which run client-side. Cache the last result per Reference Image so
@@ -380,43 +396,43 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Drag & Drop Highlight Glow Overlay */}
+      {/* Drag & Drop Highlight Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-50 bg-studio-accent/20 border-4 border-dashed border-studio-accent backdrop-blur-sm flex flex-col items-center justify-center gap-3 animate-pulse">
-          <Upload className="w-16 h-16 text-studio-accent drop-shadow-lg" />
+        <div className="absolute inset-0 z-50 bg-studio-accent/20 border-4 border-dashed border-studio-accent flex flex-col items-center justify-center gap-3">
+          <Upload className="w-16 h-16 text-studio-accent" />
           <span className="text-xl font-black text-white tracking-wide">
             Drop Reference Image Here
           </span>
-          <span className="text-xs text-studio-accent/90">Instant Tonal Separation & Scale Calibration</span>
+          <span className="text-studio-accent/90">Instant Tonal Separation & Scale Calibration</span>
         </div>
       )}
 
-      {/* Floating Canvas Top Bar Controls */}
+      {/* Floating Canvas Toolbar: zoom, Fit, True Size, and the View menu only (#39) */}
       {project.imageSrc && (
-        <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-studio-900/90 backdrop-blur-xl border border-studio-800/90 px-3 py-1.5 rounded-2xl shadow-2xl text-xs">
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-studio-900 border border-studio-800 px-3 py-1.5 rounded-xl text-xs">
           <button
             onClick={() => setScale(s => Math.min(8, s * 1.2))}
-            className="p-1.5 hover:bg-studio-800 rounded-xl text-slate-300 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-studio-800 rounded-lg text-slate-300 hover:text-white transition-colors"
             title="Zoom In"
           >
             <ZoomIn className="w-4 h-4" />
           </button>
-          <span className="font-mono text-studio-accent font-bold min-w-[45px] text-center text-[11px]">
+          <span className="font-mono text-studio-accent font-bold min-w-[45px] text-center">
             {Math.round(scale * 100)}%
           </span>
           <button
             onClick={() => setScale(s => Math.max(0.08, s / 1.2))}
-            className="p-1.5 hover:bg-studio-800 rounded-xl text-slate-300 hover:text-white transition-colors"
+            className="p-1.5 hover:bg-studio-800 rounded-lg text-slate-300 hover:text-white transition-colors"
             title="Zoom Out"
           >
             <ZoomOut className="w-4 h-4" />
           </button>
 
-          <div className="w-[1px] h-4 bg-studio-800 mx-1" />
+          <div className="w-px h-4 bg-studio-800 mx-1" />
 
           <button
             onClick={handleResetFit}
-            className="px-2.5 py-1 hover:bg-studio-800 rounded-xl text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 font-medium"
+            className="px-2.5 py-1 hover:bg-studio-800 rounded-lg text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 font-medium"
             title="Fit to Viewport"
           >
             <Maximize className="w-3.5 h-3.5 text-studio-accent" />
@@ -436,7 +452,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
               setPan({ x: 0, y: 0 });
             }}
             disabled={!project.calibration.isCalibrated || !project.paperMapping.isDeclared}
-            className={`px-2.5 py-1 rounded-xl font-mono text-[11px] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`px-2.5 py-1 rounded-lg font-mono font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
               project.calibration.isCalibrated && project.paperMapping.isDeclared
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
                 : 'bg-studio-800 text-slate-300'
@@ -450,46 +466,68 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             True Size
           </button>
 
-          <div className="w-[1px] h-4 bg-studio-800 mx-1" />
+          <div className="w-px h-4 bg-studio-800 mx-1" />
 
-          <button
-            onClick={() =>
-              onUpdateProject(prev => ({
-                ...prev,
-                viewMode: prev.viewMode === 'split' ? 'valueStudy' : 'split',
-              }))
-            }
-            className={`px-2.5 py-1 rounded-xl transition-all flex items-center gap-1.5 font-semibold ${
-              project.viewMode === 'split'
-                ? 'bg-studio-accent text-slate-950 shadow-md font-bold'
-                : 'hover:bg-studio-800 text-slate-300'
-            }`}
-            title="Split-Screen Comparison Slider"
-          >
-            <SplitSquareVertical className="w-3.5 h-3.5" />
-            <span>Split</span>
-          </button>
+          {/* View menu: render mode, split-compare, and background color live here (#39) */}
+          <div className="relative">
+            <button
+              onClick={() => setIsViewMenuOpen((v) => !v)}
+              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 font-semibold ${
+                isViewMenuOpen ? 'bg-studio-800 text-white' : 'hover:bg-studio-800 text-slate-300'
+              }`}
+              title="View options"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>View</span>
+            </button>
 
-          <div className="w-[1px] h-4 bg-studio-800 mx-1" />
+            {isViewMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setIsViewMenuOpen(false)} />
+                <div className="absolute top-full left-0 mt-1.5 z-40 w-56 bg-studio-900 border border-studio-800 rounded-xl p-2 flex flex-col gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="px-1.5 text-slate-500 font-semibold uppercase tracking-wide">Render Mode</span>
+                    {RENDER_MODES.map((rm) => (
+                      <button
+                        key={rm.mode}
+                        onClick={() => {
+                          onUpdateProject((prev) => ({ ...prev, viewMode: rm.mode }));
+                          setIsViewMenuOpen(false);
+                        }}
+                        className={`px-2 py-1.5 rounded-lg flex items-center gap-2 font-medium ${
+                          project.viewMode === rm.mode
+                            ? 'bg-studio-accent text-slate-950 font-bold'
+                            : 'text-slate-300 hover:bg-studio-850'
+                        }`}
+                      >
+                        {rm.icon}
+                        <span className="flex-1 text-left">{rm.label}</span>
+                        {project.viewMode === rm.mode && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    ))}
+                  </div>
 
-          {/* Canvas Background Theme Selector */}
-          <div className="flex items-center gap-1">
-            {[
-              { id: 'obsidian', color: '#070a11', title: 'Obsidian Black' },
-              { id: 'neutral', color: '#2b2f38', title: '18% Neutral Grey' },
-              { id: 'toned', color: '#29221b', title: 'Toned Charcoal Paper' },
-              { id: 'white', color: '#f4f4f5', title: 'Drafting Light' },
-            ].map(b => (
-              <button
-                key={b.id}
-                onClick={() => setBgTheme(b.id as any)}
-                className={`w-4 h-4 rounded-full border transition-transform ${
-                  bgTheme === b.id ? 'border-studio-accent scale-125 shadow-md' : 'border-studio-700'
-                }`}
-                style={{ backgroundColor: b.color }}
-                title={b.title}
-              />
-            ))}
+                  <div className="h-px bg-studio-800" />
+
+                  <div className="flex flex-col gap-1 px-1.5">
+                    <span className="text-slate-500 font-semibold uppercase tracking-wide">Background</span>
+                    <div className="flex items-center gap-1.5">
+                      {BG_THEMES.map((b) => (
+                        <button
+                          key={b.id}
+                          onClick={() => setBgTheme(b.id)}
+                          className={`w-5 h-5 rounded-full border transition-transform ${
+                            bgTheme === b.id ? 'border-studio-accent scale-110' : 'border-studio-700'
+                          }`}
+                          style={{ backgroundColor: b.color }}
+                          title={b.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -536,14 +574,14 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
           {/* Split Screen Slider Bar */}
           {project.viewMode === 'split' && (
             <div
-              className="absolute top-0 bottom-0 w-1 bg-studio-accent cursor-ew-resize z-10 shadow-[0_0_15px_rgba(56,189,248,0.9)]"
+              className="absolute top-0 bottom-0 w-1 bg-studio-accent cursor-ew-resize z-10"
               style={{ left: `${project.splitPosition}%` }}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 setIsDraggingSplit(true);
               }}
             >
-              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-studio-accent text-slate-950 flex items-center justify-center text-xs font-black shadow-2xl border-2 border-white">
+              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-studio-accent text-slate-950 flex items-center justify-center text-xs font-black border-2 border-white">
                 ↔
               </div>
             </div>
@@ -554,6 +592,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             height={project.imageHeight || 800}
             grid={project.grid}
             paperMapping={project.paperMapping}
+            isDimmed={project.isolation.kind !== 'none'}
           />
 
           <MethodOverlays
@@ -561,6 +600,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             height={project.imageHeight || 800}
             methodState={project.methods}
             onChange={(methods) => onUpdateProject(prev => ({ ...prev, methods }))}
+            isDimmed={project.isolation.kind !== 'none'}
           />
 
           <CaliperOverlay
@@ -584,7 +624,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       ) : (
         /* Empty State Hero & Drag Drop Uploader */
         <div className="flex flex-col items-center max-w-2xl px-6 py-10 z-10 text-center animate-in fade-in zoom-in-95 duration-300">
-          <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-studio-accent/20 via-studio-gold/20 to-indigo-500/20 border border-studio-accent/40 flex items-center justify-center shadow-2xl shadow-studio-accent/10 mb-6 animate-pulse">
+          <div className="w-16 h-16 rounded-3xl bg-studio-accent/15 border border-studio-accent/40 flex items-center justify-center mb-6">
             <Upload className="w-8 h-8 text-studio-accent" />
           </div>
 
@@ -596,7 +636,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
           </p>
 
           {/* Upload CTA Card */}
-          <label className="cursor-pointer group relative flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-studio-accent to-indigo-500 text-slate-950 font-black text-sm shadow-xl shadow-studio-accent/25 hover:shadow-studio-accent/40 hover:scale-[1.02] transition-all mb-10">
+          <label className="cursor-pointer group relative flex items-center gap-3 px-8 py-4 rounded-2xl bg-studio-accent text-slate-950 font-black text-sm hover:brightness-110 transition-all mb-10">
             <input
               type="file"
               accept="image/*"
@@ -638,7 +678,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                     <span className="font-bold text-slate-200 text-xs line-clamp-1 group-hover:text-studio-accent transition-colors">
                       {sample.title}
                     </span>
-                    <span className="text-[10px] font-mono text-studio-gold block">
+                    <span className="text-xs font-mono text-studio-gold block">
                       {sample.category}
                     </span>
                   </div>

@@ -54,11 +54,11 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <span className="font-bold text-slate-100 text-sm">{activeMethodInfo.title}</span>
-              <div className="text-[10px] text-slate-400">{activeMethodInfo.creator} • {activeMethodInfo.era}</div>
+              <div className="text-xs text-slate-400">{activeMethodInfo.creator} • {activeMethodInfo.era}</div>
             </div>
             <button
               onClick={() => onChange({ showAnchorPoints: !methods.showAnchorPoints })}
-              className={`p-1.5 rounded-lg border text-[10px] font-medium flex items-center gap-1 transition-all ${
+              className={`p-1.5 rounded-lg border text-xs font-medium flex items-center gap-1 transition-all ${
                 methods.showAnchorPoints
                   ? 'bg-studio-accent/20 text-studio-accent border-studio-accent/40'
                   : 'bg-studio-800 text-slate-400 border-studio-700'
@@ -69,7 +69,7 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
               <span>{methods.showAnchorPoints ? 'Anchors Visible' : 'Anchors Hidden'}</span>
             </button>
           </div>
-          <p className="text-slate-300 text-[11px] leading-relaxed">
+          <p className="text-slate-300 text-xs leading-relaxed">
             {activeMethodInfo.shortSummary}
           </p>
         </div>
@@ -78,32 +78,32 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
       {usesLandmarkAutoSnap && landmarks.status !== 'idle' && (
         <div className="bg-studio-900 border border-studio-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
           {landmarks.status === 'loading' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
               <ScanFace className="w-3.5 h-3.5 animate-pulse" />
               Landmark Auto-Snap scanning for a face…
             </span>
           )}
           {landmarks.status === 'ready' && landmarks.data.source === 'detected' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-emerald-400">
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
               <ScanFace className="w-3.5 h-3.5" />
               Anchors seeded from the detected face
             </span>
           )}
           {landmarks.status === 'ready' && landmarks.data.source === 'fallback' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-studio-gold">
+            <span className="flex items-center gap-1.5 text-xs text-studio-gold">
               <AlertTriangle className="w-3.5 h-3.5" />
               No face detected — anchors are a proportional starting point
             </span>
           )}
           {landmarks.status === 'error' && (
             <>
-              <span className="flex items-center gap-1.5 text-[10px] text-red-400 truncate">
+              <span className="flex items-center gap-1.5 text-xs text-red-400 truncate">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{landmarks.message}</span>
               </span>
               <button
                 onClick={onRetryLandmarks}
-                className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-studio-800 text-slate-200 hover:bg-studio-850 border border-studio-700 shrink-0"
+                className="px-2 py-1 rounded-lg text-xs font-semibold bg-studio-800 text-slate-200 hover:bg-studio-850 border border-studio-700 shrink-0"
               >
                 Retry
               </button>
@@ -113,7 +113,7 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
       )}
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Select Active Method Overlay
         </span>
         <div className="flex flex-col gap-1.5">
@@ -135,11 +135,11 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-200">{m.name}</span>
-                    <span className="text-[9px] font-mono bg-studio-950 text-slate-400 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-mono bg-studio-950 text-slate-400 px-1.5 py-0.5 rounded">
                       {m.badge}
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-400">{m.creator}</div>
+                  <div className="text-xs text-slate-400">{m.creator}</div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
