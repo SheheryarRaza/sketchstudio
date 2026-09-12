@@ -245,4 +245,29 @@ test('StudioCanvas renders EdgeQualityToolbar and EdgeQualityOverlay when edgeQu
   assert.match(html, /stroke="#f43f5e"/i);
 });
 
+test('StudioCanvas container applies touch-none class to yield touch gestures to pointer events', () => {
+  const html = renderCanvas({
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+  });
+
+  // Container must have touch-none to prevent browser scroll/zoom gestures from swallowing touch pointer moves
+  assert.match(html, /class="[^"]*touch-none[^"]*"/);
+});
+
+test('StudioCanvas split slider applies touch-none class when in split view mode', () => {
+  const html = renderCanvas({
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+    viewMode: 'split',
+    splitPosition: 50,
+  });
+
+  // Split slider bar element must have touch-none and cursor-ew-resize
+  assert.match(html, /class="[^"]*cursor-ew-resize[^"]*touch-none[^"]*"/);
+});
+
+
 
