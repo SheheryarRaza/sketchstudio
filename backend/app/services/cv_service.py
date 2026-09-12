@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import NamedTuple, Optional
 from PIL import Image
 import io
+import math
 
 FACE_DETECTOR_MODEL_PATH = Path(__file__).resolve().parent.parent / "assets" / "face_detection_yunet_2026may.onnx"
 FACE_LANDMARKER_MODEL_PATH = Path(__file__).resolve().parent.parent / "assets" / "face_landmarker.task"
@@ -30,6 +31,28 @@ def _left_right(a: tuple, b: tuple) -> tuple:
     """Orders two points by x so the smaller-x one is always "left" (image-left),
     regardless of which anatomical side a mesh landmark index nominally represents."""
     return (a, b) if a[0] <= b[0] else (b, a)
+
+
+def _direction_label_from_angle(angle_deg: float) -> str:
+    """Returns human-readable lighting direction quadrant label from Cartesian angle in degrees."""
+    angle = angle_deg % 360.0
+    if 22.5 <= angle < 67.5:
+        return f"Top-Right ({round(angle_deg)}°)"
+    elif 67.5 <= angle < 112.5:
+        return f"Top ({round(angle_deg)}°)"
+    elif 112.5 <= angle < 157.5:
+        return f"Top-Left ({round(angle_deg)}°)"
+    elif 157.5 <= angle < 202.5:
+        return f"Left ({round(angle_deg)}°)"
+    elif 202.5 <= angle < 247.5:
+        return f"Bottom-Left ({round(angle_deg)}°)"
+    elif 247.5 <= angle < 292.5:
+        return f"Bottom ({round(angle_deg)}°)"
+    elif 292.5 <= angle < 337.5:
+        return f"Bottom-Right ({round(angle_deg)}°)"
+    else:
+        return f"Right ({round(angle_deg)}°)"
+
 
 
 def _get_face_detector() -> cv2.FaceDetectorYN:
@@ -352,3 +375,116 @@ class CVService:
 
         construction = CVService._proportional_construction(w, h)
         return {"source": "fallback", **construction}
+
+    @staticmethod
+    def estimate_light_direction(
+        image_bytes: bytes,
+        shadow_threshold: Optional[int] = None
+    ) -> dict:
+        """Estimate the incident light direction angle and terminator line from the
+        image luminance histogram and the spatial distribution of the shadow Value Family."""
+        np_arr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError("Could not decode image")
+
+        h, w = img.shape[:2]
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        analysis_gray = gray
+        roi_offset_x = 0
+        roi_offset_y = 0
+        has_face = False
+        fw = w
+        fh = h
+
+        detector = _get_face_detector()
+        detector.setInputSize((w, h))
+        _, faces = detector.detect(img)
+
+        if faces is not None and len(faces) > 0:
+            best_face = faces[np.argmax(faces[:, 14])]
+            fx, fy, fw, fh = int(best_face[0]), int(best_face[1]), int(best_face[2]), int(best_face[3])
+            pad = int(min(fw, fh) * 0.25)
+            x1 = max(0, fx - pad)
+            y1 = max(0, fy - pad)
+            x2 = min(w, fx + fw + pad)
+            y2 = min(h, fy + fh + pad)
+            if (x2 - x1) > 20 and (y2 - y1) > 20:
+                analysis_gray = gray[y1:y2, x1:x2]
+                roi_offset_x = x1
+                roi_offset_y = y1
+                has_face = True
+
+        if shadow_threshold is not None:
+            thresh = int(shadow_threshold)
+        else:
+            p10 = float(np.percentile(analysis_gray, 10))
+            p90 = float(np.percentile(analysis_gray, 90))
+            otsu_val, _ = cv2.threshold(analysis_gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            thresh = int(np.clip(otsu_val, max(p10 + 5, 20), min(p90 - 5, 235)))
+
+        shadow_mask = analysis_gray < thresh
+        lit_mask = analysis_gray >= thresh
+
+        if not np.any(shadow_mask) or not np.any(lit_mask):
+            sh_x, sh_y = w * 0.6, h * 0.6
+            lit_x, lit_y = w * 0.4, h * 0.4
+        else:
+            sh_indices = np.where(shadow_mask)
+            sh_y = float(np.mean(sh_indices[0])) + roi_offset_y
+            sh_x = float(np.mean(sh_indices[1])) + roi_offset_x
+
+            lit_indices = np.where(lit_mask)
+            weights = analysis_gray[lit_mask].astype(np.float64)
+            if np.sum(weights) > 0:
+                lit_y = float(np.sum(lit_indices[0] * weights) / np.sum(weights)) + roi_offset_y
+                lit_x = float(np.sum(lit_indices[1] * weights) / np.sum(weights)) + roi_offset_x
+            else:
+                lit_y = float(np.mean(lit_indices[0])) + roi_offset_y
+                lit_x = float(np.mean(lit_indices[1])) + roi_offset_x
+
+        dx = lit_x - sh_x
+        dy = sh_y - lit_y
+
+        dist = math.hypot(dx, dy)
+        if dist < 1e-4:
+            dx, dy = 1.0, 1.0
+            angle_deg = 45.0
+        else:
+            angle_rad = math.atan2(dy, dx)
+            angle_deg = (math.degrees(angle_rad) + 360.0) % 360.0
+
+        angle_deg = round(angle_deg, 1)
+        direction_label = _direction_label_from_angle(angle_deg)
+
+        center_x = (lit_x + sh_x) / 2.0
+        center_y = (lit_y + sh_y) / 2.0
+
+        ang_rad = math.radians(angle_deg)
+        perp_x = math.sin(ang_rad)
+        perp_y = math.cos(ang_rad)
+
+        line_length = float(min(w, h) * 0.7)
+        if has_face:
+            line_length = float(max(fw, fh) * 1.2)
+
+        half_len = line_length / 2.0
+        p1_x = max(0.0, min(float(w), center_x - half_len * perp_x))
+        p1_y = max(0.0, min(float(h), center_y - half_len * perp_y))
+        p2_x = max(0.0, min(float(w), center_x + half_len * perp_x))
+        p2_y = max(0.0, min(float(h), center_y + half_len * perp_y))
+
+        return {
+            "angleDeg": angle_deg,
+            "directionLabel": direction_label,
+            "source": "estimated",
+            "threshold": thresh,
+            "terminatorLine": {
+                "p1": {"x": round(p1_x, 1), "y": round(p1_y, 1)},
+                "p2": {"x": round(p2_x, 1), "y": round(p2_y, 1)},
+            },
+            "shadowCentroid": {"x": round(sh_x, 1), "y": round(sh_y, 1)},
+            "litCentroid": {"x": round(lit_x, 1), "y": round(lit_y, 1)},
+        }
+

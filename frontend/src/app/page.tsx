@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats, LandmarkStats } from '@/types/studio';
+import type { LightDirectionResult } from '@/types/lightDirection';
 import { capRenderSize } from '@/utils/renderScale';
-import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace } from '@/utils/analysisApi';
+import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace, fetchLightDirection, scaleLightDirectionToImageSpace } from '@/utils/analysisApi';
+import { applyEstimatedLightDirection, estimateLightDirectionFromCentroids } from '@/utils/lightDirection';
 import { INITIAL_PROJECT_STATE } from '@/utils/initialProjectState';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
 import { TopStrip } from '@/components/studio/TopStrip';
@@ -161,6 +163,87 @@ export default function StudioHomePage() {
       cancelled = true;
     };
   }, [project.imageSrc, loadedImageEl, landmarksRetryTick]);
+
+  // Light Direction & Terminator Diagnosis: estimates lighting angle and core-shadow
+  // terminator boundary from the Reference Image's histogram and shadow Value Family shape.
+  const [isEstimatingLight, setIsEstimatingLight] = useState(false);
+  const lightDirectionCacheRef = useRef<{ src: string; data: LightDirectionResult } | null>(null);
+
+  const handleEstimateLightDirection = useCallback(async () => {
+    if (!project.imageSrc || !loadedImageEl) return;
+    setIsEstimatingLight(true);
+    try {
+      const src = project.imageSrc;
+      const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
+      const shadowThresh = project.valueFamilyFloors?.halftoneFloor;
+      const data = await fetchLightDirection(loadedImageEl, size, shadowThresh);
+      lightDirectionCacheRef.current = { src, data };
+      const scaled = scaleLightDirectionToImageSpace(
+        data,
+        size,
+        project.imageWidth || loadedImageEl.naturalWidth,
+        project.imageHeight || loadedImageEl.naturalHeight,
+      );
+      setProject((prev) => ({
+        ...prev,
+        methods: {
+          ...prev.methods,
+          asaro: applyEstimatedLightDirection(prev.methods.asaro, scaled),
+        },
+      }));
+    } catch {
+      const w = project.imageWidth || loadedImageEl.naturalWidth || 800;
+      const h = project.imageHeight || loadedImageEl.naturalHeight || 1000;
+      const fallback = estimateLightDirectionFromCentroids(
+        w,
+        h,
+        { x: w * 0.6, y: h * 0.6 },
+        { x: w * 0.4, y: h * 0.35 },
+      );
+      setProject((prev) => ({
+        ...prev,
+        methods: {
+          ...prev.methods,
+          asaro: applyEstimatedLightDirection(prev.methods.asaro, fallback),
+        },
+      }));
+    } finally {
+      setIsEstimatingLight(false);
+    }
+  }, [project.imageSrc, project.imageWidth, project.imageHeight, project.valueFamilyFloors, loadedImageEl]);
+
+  useEffect(() => {
+    if (!project.imageSrc || !loadedImageEl || loadedImageEl.src !== project.imageSrc) return;
+    if (project.histogram.status !== 'ready') return;
+
+    const cached = lightDirectionCacheRef.current;
+    if (cached && cached.src === project.imageSrc) {
+      const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
+      const scaled = scaleLightDirectionToImageSpace(
+        cached.data,
+        size,
+        project.imageWidth || loadedImageEl.naturalWidth,
+        project.imageHeight || loadedImageEl.naturalHeight,
+      );
+      setProject((prev) => ({
+        ...prev,
+        methods: {
+          ...prev.methods,
+          asaro: applyEstimatedLightDirection(prev.methods.asaro, scaled),
+        },
+      }));
+      return;
+    }
+
+    handleEstimateLightDirection();
+  }, [
+    project.imageSrc,
+    project.imageWidth,
+    project.imageHeight,
+    loadedImageEl,
+    project.histogram.status,
+    handleEstimateLightDirection,
+  ]);
 
   // Restore calibration, grid, and paper mapping preferences from localStorage on mount
   useEffect(() => {
@@ -482,6 +565,10 @@ export default function StudioHomePage() {
                     setIsTeachingOpen(true);
                   }}
                   onRetryLandmarks={() => setLandmarksRetryTick((t) => t + 1)}
+                  onEstimateLightDirection={handleEstimateLightDirection}
+                  isEstimatingLight={isEstimatingLight}
+                  imageWidth={project.imageWidth}
+                  imageHeight={project.imageHeight}
                 />
               )}
 

@@ -97,6 +97,14 @@ _Avoid_: Tutorial, help menu, tooltip
 The structured 5-stage drafting progression (Calibration & Envelope -> Construction & Proportion -> Shadow Block-In -> Halftone Modeling -> Deep Accents) guiding the artist from general forms to fine details.
 _Avoid_: Wizard, drawing pipeline, drawing steps
 
+**Light Direction Diagnosis**:
+The automated estimation of key light angle and core shadow boundary from the Reference Image's measured luminance histogram and shadow Value Family spatial distribution. Classified under Declared Source as an estimate, never presented as a measured fact.
+_Avoid_: Sun sensor, lighting detection, shadow angle
+
+**Terminator Line**:
+The dividing boundary between the lit hemisphere (highlights and halftones) and shadow hemisphere (core shadow, cast shadow, reflected light) of the form, drawn across the canvas to guide Asaro planar facet construction and shadow block-in.
+_Avoid_: Shadow line, cut line, border, edge divider
+
 ### Comparison
 
 **Drawing Capture**:
