@@ -6,6 +6,7 @@ import type { LightDirectionResult } from '@/types/lightDirection';
 import { capRenderSize } from '@/utils/renderScale';
 import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace, fetchLightDirection, scaleLightDirectionToImageSpace } from '@/utils/analysisApi';
 import { applyEstimatedLightDirection, estimateLightDirectionFromCentroids } from '@/utils/lightDirection';
+import { loadSamplePortraitAsDataUrl, type SampleLoadError } from '@/utils/sampleLoader';
 import { INITIAL_PROJECT_STATE } from '@/utils/initialProjectState';
 import { generateDefaultLayerMeta } from '@/utils/pencilGrades';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
@@ -71,6 +72,8 @@ export default function StudioHomePage() {
   const [isStudyLogOpen, setIsStudyLogOpen] = useState<boolean>(false);
   const [gestureState, setGestureState] = useState<GestureSessionState>(createInitialGestureState);
   const [studyLog, setStudyLog] = useState<StudyLogEntry[]>([]);
+  const [sampleLoadError, setSampleLoadError] = useState<SampleLoadError | null>(null);
+  const [isLoadingSample, setIsLoadingSample] = useState<boolean>(false);
 
   // The authoritative luminance histogram is a one-shot backend analysis, fetched
   // whenever the Reference Image changes. Cached per image so unrelated project
@@ -398,6 +401,7 @@ export default function StudioHomePage() {
 
   // Reliable file loading for local uploads & drag-drop
   const handleLoadImageFile = (file: File) => {
+    setSampleLoadError(null);
     const reader = new FileReader();
     reader.onload = (ev) => {
       const src = ev.target?.result as string;
@@ -413,27 +417,24 @@ export default function StudioHomePage() {
 
   // Sample portrait loader (converts to base64 Data URL for zero-CORS instant canvas rendering)
   const handleLoadSamplePortrait = async (url: string, title: string) => {
+    setIsLoadingSample(true);
+    setSampleLoadError(null);
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        setProject((prev) => ({
-          ...prev,
-          imageSrc: dataUrl,
-          title: title,
-          edgeQuality: createInitialEdgeQualityState(),
-        }));
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
+      const dataUrl = await loadSamplePortraitAsDataUrl(url, title);
       setProject((prev) => ({
         ...prev,
-        imageSrc: url,
+        imageSrc: dataUrl,
         title: title,
         edgeQuality: createInitialEdgeQualityState(),
       }));
+    } catch (err) {
+      setSampleLoadError({
+        url,
+        title,
+        message: err instanceof Error ? err.message : `Failed to load sample image "${title}"`,
+      });
+    } finally {
+      setIsLoadingSample(false);
     }
   };
 
@@ -506,6 +507,8 @@ export default function StudioHomePage() {
           onUpdateProject={(updater) => setProject(updater)}
           onLoadImageFile={handleLoadImageFile}
           onLoadSampleImage={handleLoadSamplePortrait}
+          sampleLoadError={sampleLoadError}
+          isLoadingSample={isLoadingSample}
           onImageLoaded={setLoadedImageEl}
           gestureState={gestureState}
           onPauseGesture={handlePauseGestureSession}
