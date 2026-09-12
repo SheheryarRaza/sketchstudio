@@ -58,7 +58,7 @@ export const TeachingModeDrawer: React.FC<TeachingModeDrawerProps> = ({
                   : 'bg-studio-850 text-slate-400 hover:text-slate-200 hover:bg-studio-800'
               }`}
             >
-              {DRAWING_METHODS_DATABASE[type].title.split(' ')[0]}
+              {DRAWING_METHODS_DATABASE[type].shortLabel}
             </button>
           ))}
         </div>
