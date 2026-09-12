@@ -115,3 +115,14 @@ _Avoid_: Template, quick-start, style
 **Auto-Suggest Chip**:
 A dismissible recommendation of one Workflow Preset, shown after upload and derived from the Reference Image's existing histogram/luminance analysis rather than freeform interpretation. Proposes; never applies itself.
 _Avoid_: AI suggestion, smart recommendation, auto-apply
+
+### Practice & progression
+
+**Gesture Study**:
+A timed drafting exercise (30s, 2min, 5min) focusing on rhythm, proportion, and line of action. Automatically conceals the Reference Image upon timer completion to enforce observational memory and deliberate practice.
+_Avoid_: Quick sketch, speed drawing, timer mode
+
+**Study Log**:
+The persistent historical journal of completed Gesture Study sessions, recording date, duration, Reference Image, and artist reflection notes to observe drawing habit development and structural growth over time.
+_Avoid_: History tab, activity log, drawing stats
+

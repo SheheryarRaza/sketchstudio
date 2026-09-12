@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import type { AtelierStage, ProjectState } from '../../types/studio';
-import { Upload, Ruler, BookOpen, Download, Compass } from 'lucide-react';
+import { Upload, Ruler, BookOpen, Download, Compass, Timer } from 'lucide-react';
 
 interface TopStripProps {
   project: ProjectState;
@@ -12,6 +12,8 @@ interface TopStripProps {
   onOpenCaliper: () => void;
   onOpenTeaching: () => void;
   onOpenExport: () => void;
+  onOpenGestureStudy?: () => void;
+  isGestureActive?: boolean;
 }
 
 interface StageMeta {
@@ -39,6 +41,8 @@ export const TopStrip: React.FC<TopStripProps> = ({
   onOpenCaliper,
   onOpenTeaching,
   onOpenExport,
+  onOpenGestureStudy,
+  isGestureActive,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -138,6 +142,19 @@ export const TopStrip: React.FC<TopStripProps> = ({
           title="Export & Print"
         >
           <Download className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={onOpenGestureStudy}
+          className={`p-2 rounded transition-colors ${
+            isGestureActive
+              ? 'text-studio-accent bg-studio-accent/20 animate-pulse'
+              : 'text-slate-300 hover:text-white hover:bg-studio-850'
+          }`}
+          title="Gesture Study & Study Log"
+          aria-label="Gesture Study & Study Log"
+        >
+          <Timer className="w-4 h-4" />
         </button>
 
         <div className="w-px h-4 bg-studio-800 mx-1" />
