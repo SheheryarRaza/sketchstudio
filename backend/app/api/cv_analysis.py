@@ -1,54 +1,59 @@
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Response, Query
+from fastapi import APIRouter, UploadFile, File, Response, Query, HTTPException
 from app.services.cv_service import CVService
 
 router = APIRouter(prefix="/cv", tags=["Computer Vision"])
 
+
+def _read_and_run(file: UploadFile, cv_func, *args, **kwargs):
+    contents = file.file.read()
+    try:
+        return cv_func(contents, *args, **kwargs)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
 @router.post("/histogram")
-async def get_image_histogram(file: UploadFile = File(...)):
+def get_image_histogram(file: UploadFile = File(...)):
     """Analyze image luminance distribution and calculate optimal value thresholds."""
-    contents = await file.read()
-    stats = CVService.analyze_image_luminance_and_histogram(contents)
-    return stats
+    return _read_and_run(file, CVService.analyze_image_luminance_and_histogram)
+
 
 @router.post("/landmarks")
-async def detect_facial_landmarks(file: UploadFile = File(...)):
+def detect_facial_landmarks(file: UploadFile = File(...)):
     """Auto-detect facial reference coordinates for Loomis sphere & Reilly rhythms."""
-    contents = await file.read()
-    landmarks = CVService.estimate_facial_landmarks(contents)
-    return landmarks
+    return _read_and_run(file, CVService.estimate_facial_landmarks)
+
 
 @router.post("/edges")
-async def extract_edges(
+def extract_edges(
     file: UploadFile = File(...),
     low_thresh: int = Query(50, ge=1, le=254),
     high_thresh: int = Query(150, ge=1, le=255)
 ):
     """Extract clean contour block-in drawing lines from photo."""
-    contents = await file.read()
-    edge_png = CVService.extract_contour_edges(contents, low_thresh, high_thresh)
+    edge_png = _read_and_run(file, CVService.extract_contour_edges, low_thresh, high_thresh)
     return Response(content=edge_png, media_type="image/png")
 
+
 @router.post("/suggest-edges")
-async def suggest_edges(
+def suggest_edges(
     file: UploadFile = File(...),
     low_thresh: int = Query(50, ge=1, le=254),
     high_thresh: int = Query(150, ge=1, le=255),
     max_segments: int = Query(20, ge=1, le=50)
 ):
     """Detect candidate edge segments from Reference Image contours for edge quality classification."""
-    contents = await file.read()
-    segments = CVService.suggest_edge_segments(contents, low_thresh, high_thresh, max_segments=max_segments)
-    return segments
+    return _read_and_run(file, CVService.suggest_edge_segments, low_thresh, high_thresh, max_segments=max_segments)
+
 
 @router.post("/light-direction")
-async def estimate_light_direction(
+def estimate_light_direction(
     file: UploadFile = File(...),
     shadow_threshold: Optional[int] = Query(None, ge=1, le=254)
 ):
     """Estimate light direction angle and terminator line from luminance histogram and shadow shape."""
-    contents = await file.read()
-    result = CVService.estimate_light_direction(contents, shadow_threshold=shadow_threshold)
-    return result
+    return _read_and_run(file, CVService.estimate_light_direction, shadow_threshold=shadow_threshold)
+
 
 
