@@ -105,7 +105,7 @@ const SAMPLE_PORTRAITS = [
 const RENDER_MODES: Array<{ mode: ProjectState['viewMode']; label: string; icon: React.ReactNode }> = [
   { mode: 'original', label: 'Photo', icon: <ImageIcon className="w-3.5 h-3.5" /> },
   { mode: 'valueStudy', label: 'Value Study', icon: <Layers className="w-3.5 h-3.5" /> },
-  { mode: 'posterized', label: 'Posterize', icon: <Layers className="w-3.5 h-3.5" /> },
+  { mode: 'tonalMask', label: 'Tonal Mask', icon: <Layers className="w-3.5 h-3.5" /> },
   { mode: 'edges', label: 'Edges', icon: <Sparkles className="w-3.5 h-3.5" /> },
   { mode: 'split', label: 'Split Compare', icon: <SplitSquareVertical className="w-3.5 h-3.5" /> },
 ];
@@ -155,6 +155,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     { status: 'idle' } | { status: 'loading' } | { status: 'error'; message: string }
   >({ status: 'idle' });
   const [edgesRetryTick, setEdgesRetryTick] = useState(0);
+  const [canvasRenderError, setCanvasRenderError] = useState<string | null>(null);
 
   // Load and fit image automatically
   useEffect(() => {
@@ -265,17 +266,22 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     }
 
     const splitRatio = viewMode === 'split' ? project.splitPosition / 100 : undefined;
-    renderValueStudyOnCanvas(
-      img,
-      canvas,
-      layers,
-      viewMode === 'split' ? 'valueStudy' : viewMode,
-      splitRatio,
-      project.isolation,
-      project.ghostOpacity,
-      project.valueFamilyFloors,
-      project.blurRadius
-    );
+    try {
+      setCanvasRenderError(null);
+      renderValueStudyOnCanvas(
+        img,
+        canvas,
+        layers,
+        viewMode === 'split' ? 'valueStudy' : viewMode,
+        splitRatio,
+        project.isolation,
+        project.ghostOpacity,
+        project.valueFamilyFloors,
+        project.blurRadius
+      );
+    } catch (err) {
+      setCanvasRenderError(err instanceof Error ? err.message : 'Failed to render canvas image');
+    }
   }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity, project.valueFamilyFloors, project.blurRadius]);
 
   useEffect(() => {
@@ -856,6 +862,18 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                     <RefreshCw className="w-3.5 h-3.5" />
                     Retry
                   </button>
+                </div>
+              )}
+
+              {/* Canvas Render Error State (e.g. tainted canvas) */}
+              {canvasRenderError && project.viewMode !== 'edges' && (
+                <div
+                  className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center"
+                  style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
+                >
+                  <AlertTriangle className="w-8 h-8 text-rose-400" />
+                  <span className="text-sm font-bold text-slate-100">Failed to render view</span>
+                  <span className="text-xs text-slate-400 max-w-xs">{canvasRenderError}</span>
                 </div>
               )}
 
