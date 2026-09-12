@@ -119,3 +119,80 @@ test('Overlay text labels counter-mirror when isFlippedHorizontal is true to pre
   // CaliperOverlay text elements counter-mirror
   assert.match(html, /<text[^>]*style="transform:scaleX\(-1\)"[^>]*>/);
 });
+
+test('StudioCanvas renders Gesture button in floating canvas toolbar when reference image is loaded', () => {
+  const html = renderCanvas({
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+  });
+
+  assert.match(html, /aria-label="Gesture study"/);
+  assert.match(html, />\s*Gesture\s*<\/span>/);
+});
+
+test('StudioCanvas automatically conceals canvas image and renders complete overlay when reference is hidden', () => {
+  const project: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+  };
+
+  const gestureState = {
+    status: 'completed' as const,
+    targetDuration: 120,
+    remainingSeconds: 0,
+    referenceTitle: 'Classical Portrait',
+    isReferenceHidden: true,
+    completedEntryId: 'entry-1',
+  };
+
+  const html = renderToStaticMarkup(
+    <StudioCanvas
+      project={project}
+      onUpdateProject={noop}
+      onLoadImageFile={noop}
+      onLoadSampleImage={noop}
+      gestureState={gestureState}
+    />
+  );
+
+  // Canvas element has invisible class
+  assert.match(html, /class="[^"]*invisible pointer-events-none[^"]*"/);
+  // Concealment overlay is rendered
+  assert.match(html, /Time&#x27;s Up!|Time's Up!/);
+  assert.match(html, /Show Reference Image/);
+});
+
+test('StudioCanvas renders floating countdown timer bar when session is running', () => {
+  const project: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+  };
+
+  const gestureState = {
+    status: 'running' as const,
+    targetDuration: 30,
+    remainingSeconds: 18,
+    referenceTitle: 'Classical Portrait',
+    isReferenceHidden: false,
+    completedEntryId: null,
+  };
+
+  const html = renderToStaticMarkup(
+    <StudioCanvas
+      project={project}
+      onUpdateProject={noop}
+      onLoadImageFile={noop}
+      onLoadSampleImage={noop}
+      gestureState={gestureState}
+    />
+  );
+
+  assert.match(html, /00:18/);
+  assert.match(html, /aria-label="Pause timer"/);
+});
+

@@ -15,6 +15,24 @@ import { PhysicalCaliperModal } from '@/components/studio/PhysicalCaliperModal';
 import { PaperMappingModal } from '@/components/studio/PaperMappingModal';
 import { TeachingModeDrawer } from '@/components/studio/TeachingModeDrawer';
 import { ExportModal } from '@/components/studio/ExportModal';
+import { StudyLogModal } from '@/components/studio/StudyLogModal';
+import type { GestureSessionState, StudyLogEntry } from '@/types/gesture';
+import {
+  createInitialGestureState,
+  startGestureSession,
+  tickGestureSession,
+  pauseGestureSession,
+  resumeGestureSession,
+  cancelGestureSession,
+  setReferenceHidden,
+} from '@/utils/gestureSession';
+import {
+  loadStudyLog,
+  appendStudyLogEntry,
+  updateStudyLogEntryNotes,
+  deleteStudyLogEntry,
+  clearStudyLog,
+} from '@/utils/studyLog';
 
 // Sidebar section shown for each Atelier Workflow stage (issue #39): stage 1 is
 // Paper Mapping + Transfer Grid, stage 2 is Drawing Method + Anchor Placement,
@@ -41,6 +59,9 @@ export default function StudioHomePage() {
   const [isTeachingOpen, setIsTeachingOpen] = useState<boolean>(false);
   const [teachingMethod, setTeachingMethod] = useState<DrawingMethodType>('loomis');
   const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
+  const [isStudyLogOpen, setIsStudyLogOpen] = useState<boolean>(false);
+  const [gestureState, setGestureState] = useState<GestureSessionState>(createInitialGestureState);
+  const [studyLog, setStudyLog] = useState<StudyLogEntry[]>([]);
 
   // The authoritative luminance histogram is a one-shot backend analysis, fetched
   // whenever the Reference Image changes. Cached per image so unrelated project
@@ -188,6 +209,89 @@ export default function StudioHomePage() {
     setProject((prev) => ({ ...prev, paperMapping: mapping }));
   };
 
+  // Restore study log from localStorage on mount
+  useEffect(() => {
+    setStudyLog(loadStudyLog());
+  }, []);
+
+  // Active gesture study timer ticker (#46)
+  useEffect(() => {
+    if (gestureState.status !== 'running') return;
+
+    const interval = setInterval(() => {
+      setGestureState((prev) => {
+        const { state: nextState } = tickGestureSession(prev, 1);
+        return nextState;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gestureState.status]);
+
+  // Persist completed gesture study session cleanly without impure updater side effects
+  useEffect(() => {
+    if (gestureState.status === 'completed' && !gestureState.completedEntryId) {
+      const { entry, log } = appendStudyLogEntry({
+        durationSeconds: gestureState.targetDuration,
+        referenceTitle: gestureState.referenceTitle || project.title || 'Untitled Reference',
+      });
+      setStudyLog(log);
+      setGestureState((prev) => ({
+        ...prev,
+        completedEntryId: entry.id,
+      }));
+    }
+  }, [
+    gestureState.status,
+    gestureState.completedEntryId,
+    gestureState.targetDuration,
+    gestureState.referenceTitle,
+    project.title,
+  ]);
+
+  const handleStartGestureSession = (durationSeconds: number) => {
+    setGestureState((prev) =>
+      startGestureSession(prev, durationSeconds, project.title || 'Untitled Reference')
+    );
+  };
+
+  const handlePauseGestureSession = () => {
+    setGestureState((prev) => pauseGestureSession(prev));
+  };
+
+  const handleResumeGestureSession = () => {
+    setGestureState((prev) => resumeGestureSession(prev));
+  };
+
+  const handleCancelGestureSession = () => {
+    setGestureState((prev) => cancelGestureSession(prev));
+  };
+
+  const handleToggleReferenceHidden = (hidden: boolean) => {
+    setGestureState((prev) => setReferenceHidden(prev, hidden));
+  };
+
+  const handleSaveGestureNote = (notes: string) => {
+    if (!gestureState.completedEntryId) return;
+    const updated = updateStudyLogEntryNotes(gestureState.completedEntryId, notes);
+    setStudyLog(updated);
+  };
+
+  const handleDeleteStudyLogEntry = (id: string) => {
+    const updated = deleteStudyLogEntry(id);
+    setStudyLog(updated);
+  };
+
+  const handleUpdateStudyLogNotes = (id: string, notes: string) => {
+    const updated = updateStudyLogEntryNotes(id, notes);
+    setStudyLog(updated);
+  };
+
+  const handleClearStudyLog = () => {
+    clearStudyLog();
+    setStudyLog([]);
+  };
+
   // Reliable file loading for local uploads & drag-drop
   const handleLoadImageFile = (file: File) => {
     const reader = new FileReader();
@@ -283,6 +387,8 @@ export default function StudioHomePage() {
           setIsTeachingOpen(true);
         }}
         onOpenExport={() => setIsExportOpen(true)}
+        onOpenGestureStudy={() => setIsStudyLogOpen(true)}
+        isGestureActive={gestureState.status === 'running' || gestureState.status === 'paused'}
       />
 
       {/* Main Studio Body Workspace */}
@@ -294,6 +400,15 @@ export default function StudioHomePage() {
           onLoadImageFile={handleLoadImageFile}
           onLoadSampleImage={handleLoadSamplePortrait}
           onImageLoaded={setLoadedImageEl}
+          gestureState={gestureState}
+          onPauseGesture={handlePauseGestureSession}
+          onResumeGesture={handleResumeGestureSession}
+          onCancelGesture={handleCancelGestureSession}
+          onToggleReferenceHidden={handleToggleReferenceHidden}
+          onStartGestureSession={handleStartGestureSession}
+          onOpenStudyLog={() => setIsStudyLogOpen(true)}
+          onSaveGestureNote={handleSaveGestureNote}
+          onDismissGestureOverlay={() => setGestureState(createInitialGestureState())}
         />
 
         {/* Progressive workspace: the sidebar stays hidden until a Reference
@@ -395,6 +510,18 @@ export default function StudioHomePage() {
         isOpen={isExportOpen}
         project={project}
         onClose={() => setIsExportOpen(false)}
+      />
+
+      <StudyLogModal
+        isOpen={isStudyLogOpen}
+        entries={studyLog}
+        onClose={() => setIsStudyLogOpen(false)}
+        onStartSession={handleStartGestureSession}
+        onDeleteEntry={handleDeleteStudyLogEntry}
+        onUpdateNotes={handleUpdateStudyLogNotes}
+        onClearLog={handleClearStudyLog}
+        currentReferenceTitle={project.title}
+        hasReferenceImage={Boolean(project.imageSrc)}
       />
     </main>
   );

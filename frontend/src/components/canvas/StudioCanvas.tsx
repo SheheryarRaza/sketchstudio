@@ -36,7 +36,11 @@ import {
   AlertTriangle,
   RefreshCw,
   FlipHorizontal,
+  Timer,
 } from 'lucide-react';
+import type { GestureSessionState } from '../../types/gesture';
+import { GestureTimerBar } from '../studio/GestureTimerBar';
+import { GestureCompleteOverlay } from '../studio/GestureCompleteOverlay';
 
 interface StudioCanvasProps {
   project: ProjectState;
@@ -44,6 +48,15 @@ interface StudioCanvasProps {
   onLoadImageFile: (file: File) => void;
   onLoadSampleImage: (url: string, title: string) => void;
   onImageLoaded?: (img: HTMLImageElement) => void;
+  gestureState?: GestureSessionState;
+  onPauseGesture?: () => void;
+  onResumeGesture?: () => void;
+  onCancelGesture?: () => void;
+  onToggleReferenceHidden?: (hidden: boolean) => void;
+  onStartGestureSession?: (durationSeconds: number) => void;
+  onOpenStudyLog?: () => void;
+  onSaveGestureNote?: (notes: string) => void;
+  onDismissGestureOverlay?: () => void;
 }
 
 const SAMPLE_PORTRAITS = [
@@ -90,6 +103,15 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   onLoadImageFile,
   onLoadSampleImage,
   onImageLoaded,
+  gestureState,
+  onPauseGesture,
+  onResumeGesture,
+  onCancelGesture,
+  onToggleReferenceHidden,
+  onStartGestureSession,
+  onOpenStudyLog,
+  onSaveGestureNote,
+  onDismissGestureOverlay,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -561,6 +583,23 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
 
           <div className="w-px h-4 bg-studio-800 mx-1" />
 
+          {/* Gesture study timer and study log button (#46) */}
+          <button
+            onClick={onOpenStudyLog}
+            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 font-medium ${
+              gestureState && (gestureState.status === 'running' || gestureState.status === 'paused')
+                ? 'bg-studio-accent/20 text-studio-accent border border-studio-accent/40 font-bold'
+                : 'hover:bg-studio-800 text-slate-300 hover:text-white'
+            }`}
+            title="Timed gesture study sessions and study log"
+            aria-label="Gesture study"
+          >
+            <Timer className="w-3.5 h-3.5" />
+            <span>Gesture</span>
+          </button>
+
+          <div className="w-px h-4 bg-studio-800 mx-1" />
+
           {/* View menu: render mode, split-compare, and background color live here (#39) */}
           <div className="relative">
             <button
@@ -625,6 +664,28 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         </div>
       )}
 
+      {/* Floating Gesture Study Timer Bar (#46) */}
+      {gestureState && (
+        <GestureTimerBar
+          session={gestureState}
+          onPause={onPauseGesture || (() => {})}
+          onResume={onResumeGesture || (() => {})}
+          onCancel={onCancelGesture || (() => {})}
+        />
+      )}
+
+      {/* Gesture study completed overlay (#46) - rendered at viewport level so pan/zoom does not distort it */}
+      {gestureState && gestureState.status === 'completed' && (
+        <GestureCompleteOverlay
+          session={gestureState}
+          onToggleReferenceHidden={onToggleReferenceHidden || (() => {})}
+          onStartSession={onStartGestureSession || (() => {})}
+          onOpenStudyLog={onOpenStudyLog || (() => {})}
+          onSaveNote={onSaveGestureNote || (() => {})}
+          onDismiss={onDismissGestureOverlay}
+        />
+      )}
+
       {/* Main Drawing Canvas when Image is Loaded */}
       {project.imageSrc ? (
         <div
@@ -637,91 +698,98 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         >
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 block rounded w-full h-full"
+            className={`absolute inset-0 block rounded w-full h-full ${
+              gestureState?.isReferenceHidden ? 'invisible pointer-events-none' : ''
+            }`}
             width={renderSize.width}
             height={renderSize.height}
           />
 
-          {/* Edges View: Loading / Error States - counter-mirrored so status text and retry button remain upright */}
-          {project.viewMode === 'edges' && edgesState.status === 'loading' && (
-            <div
-              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-studio-950/60 backdrop-blur-sm"
-              style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
-            >
-              <Loader2 className="w-8 h-8 text-studio-accent animate-spin" />
-              <span className="text-xs font-semibold text-slate-200">Extracting contours…</span>
-            </div>
+          {/* Overlays are hidden when reference image is hidden */}
+          {!gestureState?.isReferenceHidden && (
+            <>
+              {/* Edges View: Loading / Error States - counter-mirrored so status text and retry button remain upright */}
+              {project.viewMode === 'edges' && edgesState.status === 'loading' && (
+                <div
+                  className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-studio-950/60 backdrop-blur-sm"
+                  style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
+                >
+                  <Loader2 className="w-8 h-8 text-studio-accent animate-spin" />
+                  <span className="text-xs font-semibold text-slate-200">Extracting contours…</span>
+                </div>
+              )}
+              {project.viewMode === 'edges' && edgesState.status === 'error' && (
+                <div
+                  className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center"
+                  style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
+                >
+                  <AlertTriangle className="w-8 h-8 text-rose-400" />
+                  <span className="text-sm font-bold text-slate-100">Couldn&apos;t extract contours</span>
+                  <span className="text-xs text-slate-400 max-w-xs">{edgesState.message}</span>
+                  <button
+                    onClick={() => setEdgesRetryTick((t) => t + 1)}
+                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent text-slate-950 text-xs font-bold hover:brightness-110 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Split Screen Slider Bar */}
+              {project.viewMode === 'split' && (
+                <div
+                  className="absolute top-0 bottom-0 w-1 bg-studio-accent cursor-ew-resize z-10"
+                  style={{ left: `${project.splitPosition}%` }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setIsDraggingSplit(true);
+                  }}
+                >
+                  <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-studio-accent text-slate-950 flex items-center justify-center text-xs font-black border-2 border-white">
+                    ↔
+                  </div>
+                </div>
+              )}
+
+              <GridOverlay
+                width={project.imageWidth || 600}
+                height={project.imageHeight || 800}
+                grid={project.grid}
+                paperMapping={project.paperMapping}
+                isDimmed={project.isolation.kind !== 'none'}
+                isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
+              />
+
+              <MethodOverlays
+                width={project.imageWidth || 600}
+                height={project.imageHeight || 800}
+                methodState={project.methods}
+                onChange={(methods) => onUpdateProject(prev => ({ ...prev, methods }))}
+                isDimmed={project.isolation.kind !== 'none'}
+                isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
+              />
+
+              <CaliperOverlay
+                width={project.imageWidth || 600}
+                height={project.imageHeight || 800}
+                measurements={project.methods.triangulation.measurements}
+                baseUnitDistance={project.methods.triangulation.baseUnitDistance}
+                calibration={project.calibration}
+                active={project.methods.activeMethod === 'triangulation'}
+                isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
+                onChange={(measurements, baseUnit) =>
+                  onUpdateProject(prev => ({
+                    ...prev,
+                    methods: {
+                      ...prev.methods,
+                      triangulation: { measurements, baseUnitDistance: baseUnit },
+                    },
+                  }))
+                }
+              />
+            </>
           )}
-          {project.viewMode === 'edges' && edgesState.status === 'error' && (
-            <div
-              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center"
-              style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
-            >
-              <AlertTriangle className="w-8 h-8 text-rose-400" />
-              <span className="text-sm font-bold text-slate-100">Couldn&apos;t extract contours</span>
-              <span className="text-xs text-slate-400 max-w-xs">{edgesState.message}</span>
-              <button
-                onClick={() => setEdgesRetryTick((t) => t + 1)}
-                className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent text-slate-950 text-xs font-bold hover:brightness-110 transition-all"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Retry
-              </button>
-            </div>
-          )}
-
-          {/* Split Screen Slider Bar */}
-          {project.viewMode === 'split' && (
-            <div
-              className="absolute top-0 bottom-0 w-1 bg-studio-accent cursor-ew-resize z-10"
-              style={{ left: `${project.splitPosition}%` }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                setIsDraggingSplit(true);
-              }}
-            >
-              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-studio-accent text-slate-950 flex items-center justify-center text-xs font-black border-2 border-white">
-                ↔
-              </div>
-            </div>
-          )}
-
-          <GridOverlay
-            width={project.imageWidth || 600}
-            height={project.imageHeight || 800}
-            grid={project.grid}
-            paperMapping={project.paperMapping}
-            isDimmed={project.isolation.kind !== 'none'}
-            isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
-          />
-
-          <MethodOverlays
-            width={project.imageWidth || 600}
-            height={project.imageHeight || 800}
-            methodState={project.methods}
-            onChange={(methods) => onUpdateProject(prev => ({ ...prev, methods }))}
-            isDimmed={project.isolation.kind !== 'none'}
-            isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
-          />
-
-          <CaliperOverlay
-            width={project.imageWidth || 600}
-            height={project.imageHeight || 800}
-            measurements={project.methods.triangulation.measurements}
-            baseUnitDistance={project.methods.triangulation.baseUnitDistance}
-            calibration={project.calibration}
-            active={project.methods.activeMethod === 'triangulation'}
-            isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
-            onChange={(measurements, baseUnit) =>
-              onUpdateProject(prev => ({
-                ...prev,
-                methods: {
-                  ...prev.methods,
-                  triangulation: { measurements, baseUnitDistance: baseUnit },
-                },
-              }))
-            }
-          />
         </div>
       ) : (
         /* Empty State Hero & Drag Drop Uploader */

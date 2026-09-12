@@ -126,3 +126,10 @@ test('Responsive layout horizontal footprint accommodates 820px, 1100px, and 144
   const buttonMatches = html.match(/<button[^>]*class="[^"]*shrink-0[^"]*"/g);
   assert.ok(buttonMatches && buttonMatches.length >= 5, 'All stage buttons must have shrink-0 to prevent compression');
 });
+
+test('TopStrip renders Gesture Study button in actions toolbar', () => {
+  const html = renderStrip();
+  assert.match(html, /aria-label="Gesture Study &amp; Study Log"/);
+  assert.match(html, /title="Gesture Study &amp; Study Log"/);
+});
+
