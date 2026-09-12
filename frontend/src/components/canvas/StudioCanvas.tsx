@@ -302,6 +302,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     } catch (err) {
       const rawMsg = err instanceof Error ? err.message : 'Failed to render canvas image';
       const isSecurityOrTaint =
+        (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'SecurityError') ||
         rawMsg.toLowerCase().includes('taint') ||
         rawMsg.toLowerCase().includes('cross-origin') ||
         rawMsg.toLowerCase().includes('security');
@@ -893,8 +894,8 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                 </div>
               )}
 
-              {/* Canvas Render Error State (e.g. tainted canvas) */}
-              {canvasRenderError && project.viewMode !== 'edges' && (
+              {/* Canvas Render Error State (e.g. tainted canvas or failed image decode) */}
+              {canvasRenderError && (project.viewMode !== 'edges' || !loadedImage) && (
                 <div
                   role="alert"
                   className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center"
@@ -910,7 +911,9 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                       } else {
                         setCanvasRenderError(null);
                         setCanvasRetryTick((t) => t + 1);
-                        renderScene();
+                        if (loadedImage) {
+                          renderScene();
+                        }
                       }
                     }}
                     className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent text-slate-950 text-xs font-bold hover:brightness-110 transition-all"
