@@ -15,12 +15,13 @@ export type DrawingMethodType =
 
 export type AtelierStage = 1 | 2 | 3 | 4 | 5;
 
-export type MediumType = 'graphite' | 'oil' | 'watercolor' | 'pastel';
+export type MediumType = 'graphite' | 'charcoal' | 'oil' | 'watercolor' | 'pastel';
 
 export type PencilHardness = 
   | '9H' | '8H' | '7H' | '6H' | '5H' | '4H' | '3H' | '2H' | 'H'
   | 'F' | 'HB' | 'B' | '2B' | '3B' | '4B' | '5B' | '6B' | '7B' | '8B' | '9B'
-  | 'Charcoal' | 'White_Chalk';
+  | 'Charcoal' | 'White_Chalk'
+  | 'Vine_Charcoal' | 'Willow_Charcoal' | 'Charcoal_Pencil_HB' | 'Charcoal_Pencil_Hard' | 'Charcoal_Pencil_Medium' | 'Charcoal_Pencil_Soft' | 'Charcoal_Pencil_Extra_Soft' | 'Compressed_Charcoal';
 
 export type ValueFamily = 'shadows' | 'halftones' | 'lights';
 
