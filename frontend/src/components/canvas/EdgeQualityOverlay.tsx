@@ -60,7 +60,7 @@ export const EdgeQualityOverlay: React.FC<EdgeQualityOverlayProps> = ({
     if (state.mode === 'draw') {
       const coords = getNativeCoords(e.clientX, e.clientY);
       const newPt: EdgePoint = {
-        id: `dp-${Date.now()}-${drawingPoints.length}`,
+        id: `edge-pt-${Date.now()}-${drawingPoints.length}`,
         x: coords.x,
         y: coords.y,
       };
@@ -95,7 +95,7 @@ export const EdgeQualityOverlay: React.FC<EdgeQualityOverlayProps> = ({
         // Sample points at regular intervals while dragging
         if (dist > 12) {
           const newPt: EdgePoint = {
-            id: `dp-${Date.now()}-${drawingPoints.length}`,
+            id: `edge-pt-${Date.now()}-${drawingPoints.length}`,
             x: coords.x,
             y: coords.y,
           };
@@ -254,8 +254,10 @@ export const EdgeQualityOverlay: React.FC<EdgeQualityOverlayProps> = ({
             {(isSelected || state.mode === 'select') &&
               seg.points.map((pt, idx) => {
                 const isPtSelected = state.selectedPointId === pt.id;
-                const isSoft = seg.quality === 'soft';
-                const isLost = seg.quality === 'lost';
+                const ptQuality = pt.quality || seg.quality;
+                const ptConfig = EDGE_QUALITY_CONFIG[ptQuality];
+                const isSoft = ptQuality === 'soft';
+                const isLost = ptQuality === 'lost';
 
                 return (
                   <circle
@@ -263,13 +265,13 @@ export const EdgeQualityOverlay: React.FC<EdgeQualityOverlayProps> = ({
                     cx={pt.x}
                     cy={pt.y}
                     r={isPtSelected ? 5.5 : 4}
-                    fill={isLost ? '#1e1b4b' : isSoft ? '#78350f' : config.color}
-                    stroke={config.color}
-                    strokeWidth={isLost ? 2 : 1.5}
+                    fill={isLost ? '#1e1b4b' : isSoft ? '#78350f' : ptConfig.color}
+                    stroke={isPtSelected ? '#ffffff' : ptConfig.color}
+                    strokeWidth={isPtSelected ? 2 : isLost ? 2 : 1.5}
                     className="cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
                     onPointerDown={(e) => handlePointPointerDown(seg.id, pt.id, e)}
                   >
-                    <title>{`Point ${idx + 1} (${config.label} edge)`}</title>
+                    <title>{`Point ${idx + 1} (${ptConfig.label} edge)`}</title>
                   </circle>
                 );
               })}

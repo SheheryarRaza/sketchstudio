@@ -2,6 +2,7 @@ import type {
   EdgeQuality,
   EdgePoint,
   EdgeQualitySegment,
+  EdgeSegmentSource,
   EdgeQualityFilter,
   EdgeInteractionMode,
   EdgeQualityState,
@@ -82,6 +83,7 @@ export function addSegment(
     quality?: EdgeQuality;
     points: EdgePoint[];
     label?: string;
+    source?: EdgeSegmentSource;
   }
 ): EdgeQualityState {
   const id = `edge-seg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -90,6 +92,7 @@ export function addSegment(
     quality: params.quality || state.activeQuality,
     points: params.points,
     label: params.label,
+    source: params.source || 'drawn',
   };
 
   return {
@@ -153,19 +156,45 @@ export function updateSegmentQuality(
   };
 }
 
+export function updatePointQuality(
+  state: EdgeQualityState,
+  segmentId: string,
+  pointId: string,
+  quality: EdgeQuality
+): EdgeQualityState {
+  return {
+    ...state,
+    segments: state.segments.map((seg) => {
+      if (seg.id !== segmentId) return seg;
+      return {
+        ...seg,
+        points: seg.points.map((p) => (p.id === pointId ? { ...p, quality } : p)),
+      };
+    }),
+  };
+}
+
 export function splitSegmentAtPoint(
   state: EdgeQualityState,
   segmentId: string,
-  pointIndex: number
+  pointIndex?: number
 ): EdgeQualityState {
   const targetSeg = state.segments.find((s) => s.id === segmentId);
-  if (!targetSeg) return state;
-  if (pointIndex <= 0 || pointIndex >= targetSeg.points.length - 1) {
+  if (!targetSeg || targetSeg.points.length < 3) return state;
+
+  const actualIndex =
+    typeof pointIndex === 'number' && pointIndex > 0 && pointIndex < targetSeg.points.length - 1
+      ? pointIndex
+      : pointIndex === undefined
+        ? Math.floor(targetSeg.points.length / 2)
+        : -1;
+
+  if (actualIndex <= 0 || actualIndex >= targetSeg.points.length - 1) {
     return state;
   }
 
-  const firstHalfPoints = targetSeg.points.slice(0, pointIndex + 1);
-  const secondHalfPoints = targetSeg.points.slice(pointIndex);
+  const firstHalfPoints = targetSeg.points.slice(0, actualIndex + 1);
+  const secondHalfPoints = targetSeg.points.slice(actualIndex);
 
   const firstSeg: EdgeQualitySegment = {
     ...targetSeg,
@@ -309,9 +338,11 @@ export function deserializeEdgeQuality(raw: string | null): EdgeQualityState | n
               id: String(p.id || `p-${idx}`),
               x: Number(p.x) || 0,
               y: Number(p.y) || 0,
+              quality: ['hard', 'soft', 'lost'].includes(p.quality) ? p.quality : undefined,
             }))
           : [],
         label: typeof s.label === 'string' ? s.label : undefined,
+        source: ['detected', 'drawn', 'fallback'].includes(s.source) ? s.source : undefined,
       })),
       selectedSegmentId: null,
       selectedPointId: null,

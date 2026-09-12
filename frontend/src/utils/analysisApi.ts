@@ -185,6 +185,7 @@ export function scaleEdgeSegmentsToImageSpace(
   const scale = size.scale;
   return segments.map((seg) => ({
     ...seg,
+    source: seg.source || 'detected',
     points: seg.points.map((pt) => ({
       ...pt,
       x: Math.round(pt.x / scale),
@@ -215,6 +216,7 @@ export function generateFallbackEdgeSegments(
         id: `fallback-edge-jaw-${Date.now()}-1`,
         quality: 'hard',
         label: 'Jaw contour (hard)',
+        source: 'fallback',
         points: [
           { id: 'fb-j1', x: leftJaw.x, y: leftJaw.y },
           { id: 'fb-j2', x: midJawX, y: midJawY },
@@ -227,6 +229,7 @@ export function generateFallbackEdgeSegments(
         id: `fallback-edge-cheek-${Date.now()}-2`,
         quality: 'soft',
         label: 'Cheekbone turn (soft)',
+        source: 'fallback',
         points: [
           { id: 'fb-c1', x: leftTemple.x, y: leftTemple.y },
           { id: 'fb-c2', x: Math.round(leftTemple.x + (leftJaw.x - leftTemple.x) * 0.5), y: Math.round((leftTemple.y + leftJaw.y) * 0.5) },
@@ -237,6 +240,7 @@ export function generateFallbackEdgeSegments(
         id: `fallback-edge-chinshadow-${Date.now()}-3`,
         quality: 'hard',
         label: 'Sub-mandibular cast shadow (hard)',
+        source: 'fallback',
         points: [
           { id: 'fb-s1', x: Math.round(chinBottom.x - (rightJaw.x - leftJaw.x) * 0.25), y: Math.round(chinBottom.y + 25) },
           { id: 'fb-s2', x: chinBottom.x, y: Math.round(chinBottom.y + 35) },
@@ -247,6 +251,7 @@ export function generateFallbackEdgeSegments(
         id: `fallback-edge-temple-${Date.now()}-4`,
         quality: 'lost',
         label: 'Hairline & temple merge (lost)',
+        source: 'fallback',
         points: [
           { id: 'fb-t1', x: rightTemple.x, y: rightTemple.y },
           { id: 'fb-t2', x: Math.round(rightTemple.x + 30), y: Math.round(rightTemple.y - 40) },
@@ -266,6 +271,7 @@ export function generateFallbackEdgeSegments(
       id: `fallback-edge-jaw-${Date.now()}-1`,
       quality: 'hard',
       label: 'Jaw contour (hard)',
+      source: 'fallback',
       points: [
         { id: 'fb-j1', x: cx - Math.round(r * 0.7), y: cy + Math.round(r * 0.7) },
         { id: 'fb-j2', x: cx - Math.round(r * 0.4), y: cy + Math.round(r * 1.1) },
@@ -278,6 +284,7 @@ export function generateFallbackEdgeSegments(
       id: `fallback-edge-cheek-${Date.now()}-2`,
       quality: 'soft',
       label: 'Cheekbone turn (soft)',
+      source: 'fallback',
       points: [
         { id: 'fb-c1', x: cx - Math.round(r * 0.75), y: cy - Math.round(r * 0.4) },
         { id: 'fb-c2', x: cx - Math.round(r * 0.5), y: cy + Math.round(r * 0.2) },
@@ -288,6 +295,7 @@ export function generateFallbackEdgeSegments(
       id: `fallback-edge-chinshadow-${Date.now()}-3`,
       quality: 'hard',
       label: 'Cast shadow (hard)',
+      source: 'fallback',
       points: [
         { id: 'fb-s1', x: cx - Math.round(r * 0.35), y: cy + Math.round(r * 1.35) },
         { id: 'fb-s2', x: cx, y: cy + Math.round(r * 1.45) },
@@ -298,6 +306,7 @@ export function generateFallbackEdgeSegments(
       id: `fallback-edge-temple-${Date.now()}-4`,
       quality: 'lost',
       label: 'Hairline merge (lost)',
+      source: 'fallback',
       points: [
         { id: 'fb-t1', x: cx + Math.round(r * 0.75), y: cy - Math.round(r * 0.4) },
         { id: 'fb-t2', x: cx + Math.round(r * 0.8), y: cy - Math.round(r * 0.7) },

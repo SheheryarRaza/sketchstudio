@@ -35,7 +35,7 @@ async def suggest_edges(
     high_thresh: int = Query(150, ge=1, le=255),
     max_segments: int = Query(20, ge=1, le=50)
 ):
-    """Detect candidate edge segments from photo contours for edge quality classification."""
+    """Detect candidate edge segments from Reference Image contours for edge quality classification."""
     contents = await file.read()
     segments = CVService.suggest_edge_segments(contents, low_thresh, high_thresh, max_segments=max_segments)
     return segments

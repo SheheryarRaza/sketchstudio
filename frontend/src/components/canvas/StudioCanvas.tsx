@@ -410,7 +410,10 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       let suggested: EdgeQualitySegment[];
       try {
         const raw = await fetchSuggestedEdges(loadedImage, renderSize);
-        suggested = scaleEdgeSegmentsToImageSpace(raw, renderSize);
+        suggested = scaleEdgeSegmentsToImageSpace(raw, renderSize).map((s) => ({
+          ...s,
+          source: 'detected' as const,
+        }));
       } catch {
         suggested = generateFallbackEdgeSegments(
           project.imageWidth || 600,
@@ -772,7 +775,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       )}
 
       {/* Floating Edge Quality Toolbar (#47) */}
-      {project.edgeQuality?.enabled && (
+      {Boolean(project.imageSrc) && project.edgeQuality?.enabled && (
         <EdgeQualityToolbar
           state={project.edgeQuality}
           onChange={(newEq) => onUpdateProject((prev) => ({ ...prev, edgeQuality: newEq }))}

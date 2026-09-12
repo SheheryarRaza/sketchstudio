@@ -4,13 +4,17 @@ export interface EdgePoint {
   id: string;
   x: number;
   y: number;
+  quality?: EdgeQuality;
 }
+
+export type EdgeSegmentSource = 'detected' | 'drawn' | 'fallback';
 
 export interface EdgeQualitySegment {
   id: string;
   quality: EdgeQuality;
   points: EdgePoint[];
   label?: string;
+  source?: EdgeSegmentSource;
 }
 
 export type EdgeQualityFilter = 'all' | 'hard' | 'soft' | 'lost';

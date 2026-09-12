@@ -10,6 +10,7 @@ import {
   addPointToSegment,
   updatePointPosition,
   updateSegmentQuality,
+  updatePointQuality,
   splitSegmentAtPoint,
   deleteSegment,
   deletePoint,
@@ -302,4 +303,61 @@ test('deserializeEdgeQuality handles malformed or invalid JSON gracefully', () =
   assert.equal(deserializeEdgeQuality('not json'), null);
   assert.equal(deserializeEdgeQuality('{"random": 123}'), null);
   assert.equal(deserializeEdgeQuality('null'), null);
+});
+
+test('updatePointQuality updates an individual point quality', () => {
+  const initial = createInitialEdgeQualityState();
+  const withSeg = addSegment(initial, {
+    quality: 'hard',
+    points: [
+      { id: 'p1', x: 0, y: 0 },
+      { id: 'p2', x: 10, y: 10 },
+      { id: 'p3', x: 20, y: 20 },
+    ],
+  });
+  const segId = withSeg.segments[0].id;
+
+  const updated = updatePointQuality(withSeg, segId, 'p2', 'soft');
+  assert.equal(updated.segments[0].quality, 'hard');
+  assert.equal(updated.segments[0].points[1].quality, 'soft');
+  assert.equal(updated.segments[0].points[0].quality, undefined);
+});
+
+test('splitSegmentAtPoint defaults to midpoint when pointIndex is omitted', () => {
+  const initial = createInitialEdgeQualityState();
+  const withSeg = addSegment(initial, {
+    quality: 'hard',
+    points: [
+      { id: 'p1', x: 0, y: 0 },
+      { id: 'p2', x: 10, y: 10 },
+      { id: 'p3', x: 20, y: 20 },
+      { id: 'p4', x: 30, y: 30 },
+    ],
+  });
+  const segId = withSeg.segments[0].id;
+
+  const split = splitSegmentAtPoint(withSeg, segId);
+  assert.equal(split.segments.length, 2);
+  // Midpoint of length 4 is index 2
+  assert.equal(split.segments[0].points.length, 3);
+  assert.equal(split.segments[0].points[2].id, 'p3');
+  assert.equal(split.segments[1].points[0].id, 'p3');
+});
+
+test('addSegment and deserializeEdgeQuality preserve segment source', () => {
+  const initial = createInitialEdgeQualityState();
+  const withSeg = addSegment(initial, {
+    quality: 'lost',
+    points: [
+      { id: 'p1', x: 5, y: 5 },
+      { id: 'p2', x: 15, y: 15 },
+    ],
+    source: 'detected',
+  });
+
+  assert.equal(withSeg.segments[0].source, 'detected');
+
+  const serialized = serializeEdgeQuality(withSeg);
+  const deserialized = deserializeEdgeQuality(serialized);
+  assert.equal(deserialized?.segments[0].source, 'detected');
 });

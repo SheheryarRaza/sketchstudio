@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import type { EdgeQualityState, EdgeQuality, EdgeQualityFilter } from '../../types/edgeQuality';
 import {
   setActiveQuality,
   setInteractionMode,
   setFilterQuality,
   updateSegmentQuality,
+  updatePointQuality,
   splitSegmentAtPoint,
   deleteSegment,
   clearSegments,
@@ -42,6 +43,28 @@ export const EdgeQualityToolbar: React.FC<EdgeQualityToolbarProps> = ({
   isLoadingSuggestions = false,
   onClose,
 }) => {
+  const counts = countSegmentsByQuality(state.segments);
+  const selectedSegment = state.segments.find((s) => s.id === state.selectedSegmentId);
+
+  const handleQualitySelect = useCallback(
+    (quality: EdgeQuality) => {
+      if (selectedSegment) {
+        if (state.selectedPointId) {
+          // Reclassify individual selected point
+          const updated = updatePointQuality(state, selectedSegment.id, state.selectedPointId, quality);
+          onChange(setActiveQuality(updated, quality));
+        } else {
+          // Reclassify entire selected segment
+          const updated = updateSegmentQuality(state, selectedSegment.id, quality);
+          onChange(setActiveQuality(updated, quality));
+        }
+      } else {
+        onChange(setActiveQuality(state, quality));
+      }
+    },
+    [state, selectedSegment, onChange]
+  );
+
   useEffect(() => {
     if (!state.enabled) return;
 
@@ -53,11 +76,11 @@ export const EdgeQualityToolbar: React.FC<EdgeQualityToolbarProps> = ({
       }
 
       if (e.key === '1') {
-        onChange(setActiveQuality(state, 'hard'));
+        handleQualitySelect('hard');
       } else if (e.key === '2') {
-        onChange(setActiveQuality(state, 'soft'));
+        handleQualitySelect('soft');
       } else if (e.key === '3') {
-        onChange(setActiveQuality(state, 'lost'));
+        handleQualitySelect('lost');
       } else if (e.key === 'd' || e.key === 'D') {
         onChange(setInteractionMode(state, 'draw'));
       } else if (e.key === 's' || e.key === 'S') {
@@ -67,37 +90,17 @@ export const EdgeQualityToolbar: React.FC<EdgeQualityToolbarProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, onChange]);
+  }, [state, onChange, handleQualitySelect]);
 
   if (!state.enabled) return null;
 
-  const counts = countSegmentsByQuality(state.segments);
-  const selectedSegment = state.segments.find((s) => s.id === state.selectedSegmentId);
-
-  const handleQualitySelect = (quality: EdgeQuality) => {
-    if (selectedSegment) {
-      // If a segment is selected, reclassify it
-      const updated = updateSegmentQuality(state, selectedSegment.id, quality);
-      onChange(setActiveQuality(updated, quality));
-    } else {
-      onChange(setActiveQuality(state, quality));
-    }
-  };
-
   const handleSplitSelected = () => {
     if (!selectedSegment) return;
-    let ptIndex = -1;
-    if (state.selectedPointId) {
-      ptIndex = selectedSegment.points.findIndex((p) => p.id === state.selectedPointId);
-    }
-    if (ptIndex <= 0 || ptIndex >= selectedSegment.points.length - 1) {
-      // Default to middle point
-      ptIndex = Math.floor(selectedSegment.points.length / 2);
-    }
-    if (ptIndex > 0 && ptIndex < selectedSegment.points.length - 1) {
-      const next = splitSegmentAtPoint(state, selectedSegment.id, ptIndex);
-      onChange(next);
-    }
+    const ptIndex = state.selectedPointId
+      ? selectedSegment.points.findIndex((p) => p.id === state.selectedPointId)
+      : undefined;
+    const next = splitSegmentAtPoint(state, selectedSegment.id, ptIndex);
+    onChange(next);
   };
 
   const handleDeleteSelected = () => {
@@ -247,7 +250,7 @@ export const EdgeQualityToolbar: React.FC<EdgeQualityToolbarProps> = ({
           onClick={onSuggestEdges}
           disabled={isLoadingSuggestions}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-studio-850 hover:bg-studio-800 border border-studio-700/60 font-semibold text-slate-200 transition-all hover:border-studio-accent/40 disabled:opacity-50"
-          title="Detect contour edges from reference photo"
+          title="Detect contour edges from Reference Image"
         >
           {isLoadingSuggestions ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin text-studio-accent" />

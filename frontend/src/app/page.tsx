@@ -36,6 +36,7 @@ import {
 import {
   deserializeEdgeQuality,
   serializeEdgeQuality,
+  createInitialEdgeQualityState,
   EDGE_QUALITY_STORAGE_KEY,
 } from '@/utils/edgeQuality';
 
@@ -320,6 +321,7 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: src,
         title: file.name.replace(/\.[^/.]+$/, ''),
+        edgeQuality: createInitialEdgeQualityState(),
       }));
     };
     reader.readAsDataURL(file);
@@ -337,6 +339,7 @@ export default function StudioHomePage() {
           ...prev,
           imageSrc: dataUrl,
           title: title,
+          edgeQuality: createInitialEdgeQualityState(),
         }));
       };
       reader.readAsDataURL(blob);
@@ -345,6 +348,7 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: url,
         title: title,
+        edgeQuality: createInitialEdgeQualityState(),
       }));
     }
   };
