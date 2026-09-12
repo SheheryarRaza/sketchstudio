@@ -26,6 +26,12 @@ _face_detector = None
 _face_landmarker = None
 
 
+def _left_right(a: tuple, b: tuple) -> tuple:
+    """Orders two points by x so the smaller-x one is always "left" (image-left),
+    regardless of which anatomical side a mesh landmark index nominally represents."""
+    return (a, b) if a[0] <= b[0] else (b, a)
+
+
 def _get_face_detector() -> cv2.FaceDetectorYN:
     """Lazily loads and caches the YuNet face detector (OpenCV 5.0 replacement for CascadeClassifier)."""
     global _face_detector
@@ -84,6 +90,22 @@ class DetectedFace(NamedTuple):
             left_mouth=(row[12], row[13]),
             score=row[14],
         )
+
+
+class MeshAnchors(NamedTuple):
+    """Jaw/temple/brow/chin anchors read from MediaPipe's real face-mesh contour, in
+    pixel space, mirroring DetectedFace's role for the YuNet keypoints."""
+
+    left_jaw: tuple
+    right_jaw: tuple
+    left_temple: tuple
+    right_temple: tuple
+    chin: tuple
+    brow_line_y: float
+
+    @property
+    def jaw_width(self) -> float:
+        return self.right_jaw[0] - self.left_jaw[0]
 
 
 class CVService:
@@ -176,7 +198,7 @@ class CVService:
         }
 
     @staticmethod
-    def _mesh_contour_anchors(image_rgb: np.ndarray) -> Optional[dict]:
+    def _mesh_contour_anchors(image_rgb: np.ndarray) -> Optional[MeshAnchors]:
         """Runs MediaPipe Face Landmarker over an already-YuNet-detected face and returns
         pixel-space jaw/temple/chin/brow anchors from the real contour mesh, or None if
         the landmarker itself couldn't find a face (caller falls back to bbox geometry)."""
@@ -192,28 +214,28 @@ class CVService:
             landmark = mesh[index]
             return (landmark.x * w, landmark.y * h)
 
-        left_jaw, right_jaw = sorted((point(_JAW_LANDMARKS[0]), point(_JAW_LANDMARKS[1])), key=lambda p: p[0])
-        left_temple, right_temple = sorted(
-            (point(_TEMPLE_LANDMARKS[0]), point(_TEMPLE_LANDMARKS[1])), key=lambda p: p[0]
-        )
-        chin_x, chin_y = point(_CHIN_LANDMARK)
+        left_jaw, right_jaw = _left_right(point(_JAW_LANDMARKS[0]), point(_JAW_LANDMARKS[1]))
+        left_temple, right_temple = _left_right(point(_TEMPLE_LANDMARKS[0]), point(_TEMPLE_LANDMARKS[1]))
         brow_line_y = sum(point(i)[1] for i in _BROW_LANDMARKS) / len(_BROW_LANDMARKS)
 
-        return {
-            "leftJaw": {"x": int(left_jaw[0]), "y": int(left_jaw[1])},
-            "rightJaw": {"x": int(right_jaw[0]), "y": int(right_jaw[1])},
-            "leftTemple": {"x": int(left_temple[0]), "y": int(left_temple[1])},
-            "rightTemple": {"x": int(right_temple[0]), "y": int(right_temple[1])},
-            "jawWidth": int(right_jaw[0] - left_jaw[0]),
-            "chin": {"x": int(chin_x), "y": int(chin_y)},
-            "browLineY": int(brow_line_y),
-        }
+        return MeshAnchors(
+            left_jaw=left_jaw,
+            right_jaw=right_jaw,
+            left_temple=left_temple,
+            right_temple=right_temple,
+            chin=point(_CHIN_LANDMARK),
+            brow_line_y=brow_line_y,
+        )
 
     @staticmethod
-    def _construction_from_detection(face: DetectedFace, mesh_anchors: Optional[dict]) -> dict:
+    def _construction_from_detection(face: DetectedFace, mesh_anchors: Optional[MeshAnchors]) -> dict:
         """Anchors built from real detected eye/nose/mouth keypoints. Jaw/temple/chin/brow
         come from the MediaPipe contour mesh when available, falling back to the previous
-        bbox-proportional geometry when the mesh landmarker couldn't find a face."""
+        bbox-proportional geometry on the rare frame where YuNet finds a face but the mesh
+        landmarker doesn't. That fallback keeps `source: "detected"` accurate to its
+        pre-existing meaning ("a face was found") rather than adding a third declared-source
+        state — it's never less accurate than this service's behavior before this contour
+        upgrade, since every anchor here was bbox-proportional unconditionally back then."""
         center_x = int(face.x + face.w / 2)
         center_y = int((face.right_eye[1] + face.left_eye[1]) / 2)
         radius = int(face.w * 0.5)
@@ -223,14 +245,14 @@ class CVService:
 
         if mesh_anchors is not None:
             jaw_temple = {
-                "leftJaw": mesh_anchors["leftJaw"],
-                "rightJaw": mesh_anchors["rightJaw"],
-                "leftTemple": mesh_anchors["leftTemple"],
-                "rightTemple": mesh_anchors["rightTemple"],
+                "leftJaw": {"x": int(mesh_anchors.left_jaw[0]), "y": int(mesh_anchors.left_jaw[1])},
+                "rightJaw": {"x": int(mesh_anchors.right_jaw[0]), "y": int(mesh_anchors.right_jaw[1])},
+                "leftTemple": {"x": int(mesh_anchors.left_temple[0]), "y": int(mesh_anchors.left_temple[1])},
+                "rightTemple": {"x": int(mesh_anchors.right_temple[0]), "y": int(mesh_anchors.right_temple[1])},
             }
-            jaw_width = mesh_anchors["jawWidth"]
-            chin_x, chin_y = mesh_anchors["chin"]["x"], mesh_anchors["chin"]["y"]
-            brow_line_y = mesh_anchors["browLineY"]
+            jaw_width = int(mesh_anchors.jaw_width)
+            chin_x, chin_y = int(mesh_anchors.chin[0]), int(mesh_anchors.chin[1])
+            brow_line_y = int(mesh_anchors.brow_line_y)
         else:
             jaw_temple = CVService._symmetric_jaw_temple(center_x, center_y, radius)
             jaw_width = int(radius * 0.9)

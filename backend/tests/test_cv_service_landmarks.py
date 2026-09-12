@@ -1,10 +1,11 @@
 import io
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
-from app.services.cv_service import CVService, DetectedFace
+from app.services.cv_service import CVService, DetectedFace, MeshAnchors
 
 # portrait.jpg is MediaPipe's own Face Landmarker test asset
 # (storage.googleapis.com/mediapipe-assets/portrait.jpg), Apache-2.0 licensed.
@@ -37,19 +38,41 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
         # Brow sits above the eyes, and chin sits below the nose.
         self.assertLess(loomis["browLineY"], reilly["leftEye"]["y"])
         self.assertGreater(loomis["chinY"], loomis["noseLineY"])
+        # Temple sits above jaw, which sits above the chin — real face topology,
+        # not three points collapsed onto the same bbox-proportional guess.
+        self.assertLess(reilly["leftTemple"]["y"], reilly["leftJaw"]["y"])
+        self.assertLess(reilly["leftJaw"]["y"], loomis["chinY"])
+        # Contour anchors land within the detected face's bounding region, not
+        # off in the background — a wrong mesh index would likely fail this.
+        face_left = loomis["center"]["x"] - loomis["radius"] * 2
+        face_right = loomis["center"]["x"] + loomis["radius"] * 2
+        for anchor in (reilly["leftJaw"], reilly["rightJaw"], reilly["leftTemple"], reilly["rightTemple"]):
+            self.assertTrue(face_left < anchor["x"] < face_right)
         # Eye/nose/mouth anchors are unchanged: still straight from YuNet.
         self.assertLess(reilly["leftEye"]["x"], reilly["rightEye"]["x"])
 
+    def test_yunet_hit_but_mesh_miss_still_reports_detected_with_bbox_geometry(self):
+        """If YuNet finds a face but the mesh landmarker doesn't on that same photo,
+        jaw/temple/chin/brow degrade to the pre-upgrade bbox math while `source` stays
+        "detected" — no worse than this service's behavior before this ticket."""
+        with patch.object(CVService, "_mesh_contour_anchors", return_value=None) as mocked:
+            result = CVService.estimate_facial_landmarks(PORTRAIT_PATH.read_bytes())
+
+        mocked.assert_called_once()
+        self.assertEqual(result["source"], "detected")
+        loomis = result["loomis"]
+        self.assertEqual(loomis["jawWidth"], int(loomis["radius"] * 0.9))
+        self.assertEqual(loomis["browLineY"], loomis["center"]["y"])
+
     def test_construction_uses_mesh_anchors_when_available(self):
-        mesh_anchors = {
-            "leftJaw": {"x": 10, "y": 20},
-            "rightJaw": {"x": 30, "y": 20},
-            "leftTemple": {"x": 5, "y": 5},
-            "rightTemple": {"x": 35, "y": 5},
-            "jawWidth": 20,
-            "chin": {"x": 20, "y": 40},
-            "browLineY": 15,
-        }
+        mesh_anchors = MeshAnchors(
+            left_jaw=(10, 20),
+            right_jaw=(30, 20),
+            left_temple=(5, 5),
+            right_temple=(35, 5),
+            chin=(20, 40),
+            brow_line_y=15,
+        )
 
         result = CVService._construction_from_detection(FAKE_FACE, mesh_anchors)
 
