@@ -133,3 +133,10 @@ test('TopStrip renders Gesture Study button in actions toolbar', () => {
   assert.match(html, /title="Gesture Study &amp; Study Log"/);
 });
 
+test('TopStrip renders Studio Walkthrough button in actions toolbar', () => {
+  const html = renderStrip();
+  assert.match(html, /aria-label="Studio Walkthrough"/);
+  assert.match(html, /title="Studio Walkthrough"/);
+});
+
+

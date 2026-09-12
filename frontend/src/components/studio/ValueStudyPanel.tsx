@@ -7,12 +7,14 @@ import { PencilGradePanel } from './PencilGradePanel';
 import { buildValueLayers, generateCutPointsFromHistogram, generateDefaultCutPoints, moveCutPoint } from '../../utils/cutPoints';
 import { buildValueFamilies, layersInFamily } from '../../utils/tonalDecision';
 import { CONSTRUCTION_INK } from '../../utils/inkColors';
-import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw, Wand2, BookOpen } from 'lucide-react';
+import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw, Wand2, BookOpen, Sparkles } from 'lucide-react';
+import { WORKFLOW_PRESETS } from '../../utils/workflowPresets';
 
 interface ValueStudyPanelProps {
   project: ProjectState;
   onUpdateProject: (updater: (prev: ProjectState) => ProjectState) => void;
   onRetryHistogram?: () => void;
+  onOpenPresetPicker?: () => void;
 }
 
 // Builds a filled area path from the 256-bin luminance histogram (0-100 normalized).
@@ -34,8 +36,9 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   project,
   onUpdateProject,
   onRetryHistogram,
+  onOpenPresetPicker,
 }) => {
-  const { layerMeta, cutPoints, numValueLayers, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource, medium } = project;
+  const { layerMeta, cutPoints, numValueLayers, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource, medium, appliedPreset } = project;
   const [showScaleReference, setShowScaleReference] = useState(false);
   const layers = buildValueLayers(layerMeta, cutPoints);
   const valueFamilies = buildValueFamilies(valueFamilyFloors);
@@ -106,6 +109,28 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
 
   return (
     <div className="flex flex-col gap-4 p-4 text-xs">
+      {appliedPreset && (
+        <div className="flex items-center justify-between p-2.5 bg-studio-900 border border-studio-800 rounded-xl">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-3.5 h-3.5 text-studio-accent shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Workflow Preset</span>
+              <span className="font-bold text-slate-100 truncate">
+                {WORKFLOW_PRESETS[appliedPreset]?.name || appliedPreset}
+              </span>
+            </div>
+          </div>
+          {onOpenPresetPicker && (
+            <button
+              onClick={onOpenPresetPicker}
+              className="px-2.5 py-1 rounded bg-studio-800 hover:bg-studio-750 text-studio-accent hover:text-white font-semibold text-xs transition-colors border border-studio-700/50 shrink-0 ml-2"
+            >
+              Change
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-slate-200 text-sm">
           <Layers className="w-4 h-4 text-studio-accent" />

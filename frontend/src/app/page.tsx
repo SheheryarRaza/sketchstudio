@@ -20,6 +20,10 @@ import { PaperMappingModal } from '@/components/studio/PaperMappingModal';
 import { TeachingModeDrawer } from '@/components/studio/TeachingModeDrawer';
 import { ExportModal } from '@/components/studio/ExportModal';
 import { StudyLogModal } from '@/components/studio/StudyLogModal';
+import { PresetPickerModal } from '@/components/studio/PresetPickerModal';
+import { FirstRunTourModal, TOUR_STORAGE_KEY } from '@/components/studio/FirstRunTourModal';
+import { applyWorkflowPreset, type WorkflowPresetId } from '@/utils/workflowPresets';
+import { Compass, X } from 'lucide-react';
 import type { GestureSessionState, StudyLogEntry } from '@/types/gesture';
 import {
   createInitialGestureState,
@@ -74,6 +78,9 @@ export default function StudioHomePage() {
   const [studyLog, setStudyLog] = useState<StudyLogEntry[]>([]);
   const [sampleLoadError, setSampleLoadError] = useState<SampleLoadError | null>(null);
   const [isLoadingSample, setIsLoadingSample] = useState<boolean>(false);
+  const [isPresetPickerOpen, setIsPresetPickerOpen] = useState<boolean>(false);
+  const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
+  const [sandboxNoticeToast, setSandboxNoticeToast] = useState<string | null>(null);
 
   // The authoritative luminance histogram is a one-shot backend analysis, fetched
   // whenever the Reference Image changes. Cached per image so unrelated project
@@ -321,6 +328,15 @@ export default function StudioHomePage() {
     setStudyLog(loadStudyLog());
   }, []);
 
+  // Auto-dismiss sandbox switch notice toast after 6 seconds
+  useEffect(() => {
+    if (!sandboxNoticeToast) return;
+    const timer = setTimeout(() => {
+      setSandboxNoticeToast(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [sandboxNoticeToast]);
+
   // Active gesture study timer ticker (#46)
   useEffect(() => {
     if (gestureState.status !== 'running') return;
@@ -409,8 +425,18 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: src,
         title: file.name.replace(/\.[^/.]+$/, ''),
+        appliedPreset: null,
         edgeQuality: createInitialEdgeQualityState(),
       }));
+      try {
+        const hasSeenTour = localStorage.getItem(TOUR_STORAGE_KEY);
+        if (!hasSeenTour) {
+          setIsTourOpen(true);
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      setIsPresetPickerOpen(true);
     };
     reader.readAsDataURL(file);
   };
@@ -425,8 +451,18 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: dataUrl,
         title: title,
+        appliedPreset: null,
         edgeQuality: createInitialEdgeQualityState(),
       }));
+      try {
+        const hasSeenTour = localStorage.getItem(TOUR_STORAGE_KEY);
+        if (!hasSeenTour) {
+          setIsTourOpen(true);
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      setIsPresetPickerOpen(true);
     } catch (err) {
       setSampleLoadError({
         url,
@@ -436,6 +472,24 @@ export default function StudioHomePage() {
     } finally {
       setIsLoadingSample(false);
     }
+  };
+
+  const handleSelectWorkflowPreset = (presetId: WorkflowPresetId) => {
+    if (!project.isSandbox) {
+      try {
+        const seenNotice = sessionStorage.getItem('sketchstudio_sandbox_preset_toast_seen');
+        if (!seenNotice) {
+          setSandboxNoticeToast(
+            'Switched to Sandbox Mode — Workflow presets configure View Mode, Drawing Method, and Grid directly, exiting the guided Atelier stages.'
+          );
+          sessionStorage.setItem('sketchstudio_sandbox_preset_toast_seen', 'true');
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    setProject((prev) => applyWorkflowPreset(prev, presetId));
+    setIsPresetPickerOpen(false);
   };
 
   const handleStageChange = (newStage: AtelierStage) => {
@@ -496,6 +550,7 @@ export default function StudioHomePage() {
         }}
         onOpenExport={() => setIsExportOpen(true)}
         onOpenGestureStudy={() => setIsStudyLogOpen(true)}
+        onOpenTour={() => setIsTourOpen(true)}
         isGestureActive={gestureState.status === 'running' || gestureState.status === 'paused'}
       />
 
@@ -581,6 +636,7 @@ export default function StudioHomePage() {
                   project={project}
                   onUpdateProject={(updater) => setProject(updater)}
                   onRetryHistogram={() => setHistogramRetryTick((t) => t + 1)}
+                  onOpenPresetPicker={() => setIsPresetPickerOpen(true)}
                 />
               )}
             </div>
@@ -646,6 +702,37 @@ export default function StudioHomePage() {
         currentReferenceTitle={project.title}
         hasReferenceImage={Boolean(project.imageSrc)}
       />
+
+      <PresetPickerModal
+        isOpen={isPresetPickerOpen}
+        onClose={() => setIsPresetPickerOpen(false)}
+        onSelectPreset={handleSelectWorkflowPreset}
+        histogramStats={project.histogram.status === 'ready' ? project.histogram.data : null}
+        currentPresetId={project.appliedPreset}
+      />
+
+      <FirstRunTourModal
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+      />
+
+      {sandboxNoticeToast && (
+        <div
+          role="alert"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-studio-900 border border-studio-accent/40 rounded-xl shadow-2xl text-xs max-w-md animate-in slide-in-from-bottom-2 text-slate-100"
+        >
+          <Compass className="w-4 h-4 text-studio-accent shrink-0" />
+          <p className="leading-relaxed flex-1">{sandboxNoticeToast}</p>
+          <button
+            onClick={() => setSandboxNoticeToast(null)}
+            className="text-slate-400 hover:text-white p-1 rounded hover:bg-studio-800 transition-colors shrink-0"
+            title="Dismiss notice"
+            aria-label="Dismiss notice"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </main>
   );
 }

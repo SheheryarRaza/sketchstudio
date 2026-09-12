@@ -199,6 +199,13 @@ export interface DrawingMethodState {
 import type { LightDirectionSource, TerminatorLine } from './lightDirection';
 import type { EdgeQualityState } from './edgeQuality';
 
+export type WorkflowPresetId =
+  | 'portrait-static'
+  | 'portrait-dramatic'
+  | 'expressive-dynamic'
+  | 'classical-cast'
+  | 'scene-composition';
+
 export interface ProjectState {
   id?: string;
   title: string;
@@ -224,6 +231,7 @@ export interface ProjectState {
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
   valueFamilyFloors: ValueFamilyFloors;
   cutPointSource: CutPointSource;
+  appliedPreset?: WorkflowPresetId | null;
   histogram: HistogramAnalysisState;
   landmarks: LandmarkAnalysisState;
 }
