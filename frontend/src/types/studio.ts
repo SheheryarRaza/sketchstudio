@@ -210,6 +210,7 @@ export interface ProjectState {
   methods: DrawingMethodState;
   viewMode: 'original' | 'valueStudy' | 'edges' | 'split' | 'posterized';
   splitPosition: number; // 0-100 percentage
+  blurRadius: number; // in pixels, squint mode blur radius applied to canvas view
   isolation: IsolationTarget;
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
   valueFamilyFloors: ValueFamilyFloors;

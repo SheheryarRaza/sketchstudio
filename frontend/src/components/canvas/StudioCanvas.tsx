@@ -7,6 +7,12 @@ import { buildValueLayers } from '../../utils/cutPoints';
 import { capRenderSize } from '../../utils/renderScale';
 import { fetchEdgeContours } from '../../utils/analysisApi';
 import { computeTrueSizeScale } from '../../utils/paperMapping';
+import {
+  clampBlurRadius,
+  formatBlurRadius,
+  MAX_BLUR_RADIUS,
+  MIN_BLUR_RADIUS,
+} from '../../utils/squint';
 import { GridOverlay } from './GridOverlay';
 import { MethodOverlays } from './MethodOverlays';
 import { CaliperOverlay } from './CaliperOverlay';
@@ -219,9 +225,10 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       splitRatio,
       project.isolation,
       project.ghostOpacity,
-      project.valueFamilyFloors
+      project.valueFamilyFloors,
+      project.blurRadius
     );
-  }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity, project.valueFamilyFloors]);
+  }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity, project.valueFamilyFloors, project.blurRadius]);
 
   useEffect(() => {
     renderScene();
@@ -244,7 +251,14 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      if (project.blurRadius > 0) {
+        ctx.save();
+        ctx.filter = `blur(${project.blurRadius}px)`;
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      }
     };
 
     const cached = edgesCacheRef.current;
@@ -289,7 +303,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [project.viewMode, project.imageSrc, loadedImage, renderSize, edgesRetryTick]);
+  }, [project.viewMode, project.imageSrc, loadedImage, renderSize, edgesRetryTick, project.blurRadius]);
 
   // Handle Drag and Drop
   const handleDragOver = (e: React.DragEvent) => {
@@ -465,6 +479,29 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
           >
             True Size
           </button>
+
+          <div className="w-px h-4 bg-studio-800 mx-1" />
+
+          {/* Squint blur slider to simplify the Reference Image into big masses */}
+          <div className="flex items-center gap-1.5 pl-0.5" title="Squint: Gaussian blur slider to simplify the Reference Image into big tonal masses">
+            <span className="text-slate-400 font-medium text-[11px]">Squint</span>
+            <input
+              type="range"
+              min={MIN_BLUR_RADIUS}
+              max={MAX_BLUR_RADIUS}
+              step="1"
+              value={project.blurRadius}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                onUpdateProject((prev) => ({ ...prev, blurRadius: clampBlurRadius(val) }));
+              }}
+              className="w-16 lg:w-20 h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-studio-accent"
+              aria-label="Squint blur radius"
+            />
+            <span className="font-mono text-[11px] text-studio-accent min-w-[28px] text-right">
+              {formatBlurRadius(project.blurRadius)}
+            </span>
+          </div>
 
           <div className="w-px h-4 bg-studio-800 mx-1" />
 
