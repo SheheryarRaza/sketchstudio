@@ -23,7 +23,9 @@ export function renderValueStudyOnCanvas(
   blurRadius: number = 0,
 ) {
   const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return;
+  if (!ctx) {
+    throw new Error('Failed to acquire destination canvas 2D rendering context');
+  }
 
   const width = targetCanvas.width;
   const height = targetCanvas.height;
@@ -33,7 +35,9 @@ export function renderValueStudyOnCanvas(
   tempCanvas.width = width;
   tempCanvas.height = height;
   const tempCtx = tempCanvas.getContext('2d');
-  if (!tempCtx) return;
+  if (!tempCtx) {
+    throw new Error('Failed to acquire offscreen canvas 2D rendering context');
+  }
 
   if (blurRadius > 0) {
     tempCtx.filter = `blur(${blurRadius}px)`;

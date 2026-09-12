@@ -269,5 +269,81 @@ test('StudioCanvas split slider applies touch-none class when in split view mode
   assert.match(html, /class="[^"]*cursor-ew-resize[^"]*touch-none[^"]*"/);
 });
 
+test('StudioCanvas renders visible inline error state with Retry action when canvas reading fails', () => {
+  const project: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    imageSrc: 'data:image/svg+xml;base64,mock',
+    imageWidth: 800,
+    imageHeight: 1000,
+  };
+
+  const html = renderToStaticMarkup(
+    <StudioCanvas
+      project={project}
+      onUpdateProject={noop}
+      onLoadImageFile={noop}
+      onLoadSampleImage={noop}
+      canvasRenderError="Canvas pixels cannot be read due to cross-origin security restrictions. Try uploading the image directly from your device."
+    />
+  );
+
+  // Must render Declared Source "Analysis failed"
+  assert.match(html, /Analysis failed/);
+  // Must render actionable error text
+  assert.match(html, /Canvas pixels cannot be read due to cross-origin security restrictions/);
+  // Must render a Retry button
+  assert.match(html, />\s*Retry\s*<\/button>/);
+});
+
+test('StudioCanvas renders visible inline error state with Retry action when sample image load fails', () => {
+  const project: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    imageSrc: null,
+  };
+
+  const sampleError = {
+    url: '/samples/classical-portrait.svg',
+    title: 'Classical Atelier Portrait',
+    message: 'Failed to load sample image "Classical Atelier Portrait" (404 Not Found). The reference file could not be retrieved.',
+  };
+
+  const html = renderToStaticMarkup(
+    <StudioCanvas
+      project={project}
+      onUpdateProject={noop}
+      onLoadImageFile={noop}
+      onLoadSampleImage={noop}
+      sampleLoadError={sampleError}
+    />
+  );
+
+  // Must render Declared Source "Analysis failed — retry"
+  assert.match(html, /Analysis failed — retry/);
+  // Must render the actionable error message
+  assert.match(html, /Failed to load sample image (?:&quot;|")Classical Atelier Portrait(?:&quot;|") \(404 Not Found\)/);
+  // Must render a Retry button
+  assert.match(html, />\s*Retry\s*<\/button>/);
+});
+
+test('StudioCanvas disables sample portrait cards when isLoadingSample is true', () => {
+  const project: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    imageSrc: null,
+  };
+
+  const html = renderToStaticMarkup(
+    <StudioCanvas
+      project={project}
+      onUpdateProject={noop}
+      onLoadImageFile={noop}
+      onLoadSampleImage={noop}
+      isLoadingSample={true}
+    />
+  );
+
+  assert.match(html, /disabled=""/);
+});
+
+
 
 

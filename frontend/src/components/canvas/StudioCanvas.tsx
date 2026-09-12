@@ -60,6 +60,7 @@ import {
   createInitialEdgeQualityState,
 } from '../../utils/edgeQuality';
 import type { EdgeQualitySegment } from '../../types/edgeQuality';
+import type { SampleLoadError } from '../../utils/sampleLoader';
 import { Activity } from 'lucide-react';
 
 interface StudioCanvasProps {
@@ -77,6 +78,10 @@ interface StudioCanvasProps {
   onOpenStudyLog?: () => void;
   onSaveGestureNote?: (notes: string) => void;
   onDismissGestureOverlay?: () => void;
+  sampleLoadError?: SampleLoadError | null;
+  isLoadingSample?: boolean;
+  canvasRenderError?: string | null;
+  onRetryCanvasRender?: () => void;
 }
 
 const SAMPLE_PORTRAITS = [
@@ -132,6 +137,10 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   onOpenStudyLog,
   onSaveGestureNote,
   onDismissGestureOverlay,
+  sampleLoadError,
+  isLoadingSample = false,
+  canvasRenderError: canvasRenderErrorProp,
+  onRetryCanvasRender,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -155,7 +164,10 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     { status: 'idle' } | { status: 'loading' } | { status: 'error'; message: string }
   >({ status: 'idle' });
   const [edgesRetryTick, setEdgesRetryTick] = useState(0);
-  const [canvasRenderError, setCanvasRenderError] = useState<string | null>(null);
+  const [internalCanvasRenderError, setInternalCanvasRenderError] = useState<string | null>(null);
+  const canvasRenderError = canvasRenderErrorProp !== undefined ? canvasRenderErrorProp : internalCanvasRenderError;
+  const setCanvasRenderError = setInternalCanvasRenderError;
+  const [canvasRetryTick, setCanvasRetryTick] = useState(0);
 
   // Load and fit image automatically
   useEffect(() => {
@@ -232,12 +244,20 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         setScale(autoFit);
         setPan({ x: 0, y: 0 });
       }
+      setCanvasRenderError(null);
+    };
+
+    img.onerror = () => {
+      if (!isMounted) return;
+      setCanvasRenderError(
+        'Failed to load reference image. The image source could not be decoded. Check your connection or upload an image from your device.'
+      );
     };
 
     return () => {
       isMounted = false;
     };
-  }, [project.imageSrc]);
+  }, [project.imageSrc, canvasRetryTick]);
 
   // Working resolution for the canvas backing store (ADR-0004). The wrapper below
   // stays shrink-0 so its box remains the Reference Image's coordinate space; as a
@@ -280,7 +300,16 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         project.blurRadius
       );
     } catch (err) {
-      setCanvasRenderError(err instanceof Error ? err.message : 'Failed to render canvas image');
+      const rawMsg = err instanceof Error ? err.message : 'Failed to render canvas image';
+      const isSecurityOrTaint =
+        (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'SecurityError') ||
+        rawMsg.toLowerCase().includes('taint') ||
+        rawMsg.toLowerCase().includes('cross-origin') ||
+        rawMsg.toLowerCase().includes('security');
+      const formatted = isSecurityOrTaint
+        ? 'Canvas pixels cannot be read due to cross-origin security restrictions. Try uploading the image directly from your device.'
+        : rawMsg;
+      setCanvasRenderError(formatted);
     }
   }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity, project.valueFamilyFloors, project.blurRadius]);
 
@@ -865,15 +894,33 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                 </div>
               )}
 
-              {/* Canvas Render Error State (e.g. tainted canvas) */}
-              {canvasRenderError && project.viewMode !== 'edges' && (
+              {/* Canvas Render Error State (e.g. tainted canvas or failed image decode) */}
+              {canvasRenderError && (project.viewMode !== 'edges' || !loadedImage) && (
                 <div
+                  role="alert"
                   className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center"
                   style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
                 >
                   <AlertTriangle className="w-8 h-8 text-rose-400" />
-                  <span className="text-sm font-bold text-slate-100">Failed to render view</span>
+                  <span className="text-sm font-bold text-slate-100">Analysis failed</span>
                   <span className="text-xs text-slate-400 max-w-xs">{canvasRenderError}</span>
+                  <button
+                    onClick={() => {
+                      if (onRetryCanvasRender) {
+                        onRetryCanvasRender();
+                      } else {
+                        setCanvasRenderError(null);
+                        setCanvasRetryTick((t) => t + 1);
+                        if (loadedImage) {
+                          renderScene();
+                        }
+                      }
+                    }}
+                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent text-slate-950 text-xs font-bold hover:brightness-110 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry
+                  </button>
                 </div>
               )}
 
@@ -986,12 +1033,35 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
               <span>Or begin with a classical atelier reference model:</span>
             </div>
 
+            {sampleLoadError && (
+              <div
+                role="alert"
+                className="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs shadow-md"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <div className="flex flex-col text-left truncate">
+                    <span className="font-bold text-slate-200">Analysis failed — retry</span>
+                    <span className="text-slate-400 truncate text-[11px]">{sampleLoadError.message}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onLoadSampleImage(sampleLoadError.url, sampleLoadError.title)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-accent text-slate-950 font-bold hover:brightness-110 transition-all shrink-0 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Retry
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {SAMPLE_PORTRAITS.map((sample) => (
                 <button
                   key={sample.title}
+                  disabled={isLoadingSample}
                   onClick={() => onLoadSampleImage(sample.url, sample.title)}
-                  className="group relative rounded-2xl overflow-hidden border border-studio-800 bg-studio-900/80 hover:border-studio-accent/60 hover:shadow-xl transition-all flex flex-col text-left p-2.5 gap-2"
+                  className="group relative rounded-2xl overflow-hidden border border-studio-800 bg-studio-900/80 hover:border-studio-accent/60 hover:shadow-xl transition-all flex flex-col text-left p-2.5 gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <div className="w-full h-24 rounded-xl overflow-hidden bg-studio-950 relative">
                     <img
