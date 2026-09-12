@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { ValueLayerMeta, ProjectState, PencilHardness, IsolationTarget } from '../../types/studio';
-import { generateDefaultLayerMeta, PENCIL_DATABASE } from '../../utils/pencilGrades';
+import { generateDefaultLayerMeta, PENCIL_DATABASE, getPencilGradesForMedium, formatPencilTooltip } from '../../utils/pencilGrades';
+import { PencilGradePanel } from './PencilGradePanel';
 import { buildValueLayers, generateCutPointsFromHistogram, generateDefaultCutPoints, moveCutPoint } from '../../utils/cutPoints';
 import { buildValueFamilies, layersInFamily } from '../../utils/tonalDecision';
 import { CONSTRUCTION_INK } from '../../utils/inkColors';
-import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw, Wand2 } from 'lucide-react';
+import { Layers, Eye, EyeOff, SlidersHorizontal, Focus, BarChart3, Loader2, AlertTriangle, RefreshCw, Wand2, BookOpen } from 'lucide-react';
 
 interface ValueStudyPanelProps {
   project: ProjectState;
@@ -29,24 +30,22 @@ const histogramAreaPath = (bins: number[]): string => {
   return `${d} L${w},${h} Z`;
 };
 
-const PENCIL_OPTIONS: PencilHardness[] = [
-  'White_Chalk', '9H', '6H', '4H', '2H', 'H', 'F', 'HB', 'B', '2B', '3B', '4B', '5B', '6B', '8B', '9B', 'Charcoal'
-];
-
 export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   project,
   onUpdateProject,
   onRetryHistogram,
 }) => {
-  const { layerMeta, cutPoints, numValueLayers, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource } = project;
+  const { layerMeta, cutPoints, numValueLayers, isolation, ghostOpacity, histogram, valueFamilyFloors, cutPointSource, medium } = project;
+  const [showScaleReference, setShowScaleReference] = useState(false);
   const layers = buildValueLayers(layerMeta, cutPoints);
   const valueFamilies = buildValueFamilies(valueFamilyFloors);
+  const availablePencilOptions = getPencilGradesForMedium(medium);
 
   const handleLevelCountChange = (count: number) => {
     onUpdateProject(prev => ({
       ...prev,
       numValueLayers: count,
-      layerMeta: generateDefaultLayerMeta(count),
+      layerMeta: generateDefaultLayerMeta(count, prev.medium),
       cutPoints: generateDefaultCutPoints(count),
       cutPointSource: 'default',
       // Layer ids encode the layer count, so a layer isolation cannot outlive a
@@ -112,10 +111,30 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           <Layers className="w-4 h-4 text-studio-accent" />
           <span>Tonal Value Breakdown</span>
         </div>
-        <span className="text-xs font-mono text-studio-400 bg-studio-850 px-2 py-0.5 rounded">
-          {layers.length} Value Bands
-        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowScaleReference(!showScaleReference)}
+            className={`text-[11px] px-2 py-0.5 rounded border transition-all flex items-center gap-1 font-semibold ${
+              showScaleReference
+                ? 'bg-studio-800 text-studio-accent border-studio-accent/40'
+                : 'bg-studio-850 text-slate-400 hover:text-slate-200 border-studio-800'
+            }`}
+            title="View full materials scale reference for active medium"
+          >
+            <BookOpen className="w-3 h-3" />
+            <span>Materials</span>
+          </button>
+          <span className="text-xs font-mono text-studio-400 bg-studio-850 px-2 py-0.5 rounded">
+            {layers.length} Value Bands
+          </span>
+        </div>
       </div>
+
+      {showScaleReference && (
+        <div className="border border-studio-800 rounded-xl bg-studio-950/80 overflow-hidden shadow-lg">
+          <PencilGradePanel medium={medium} />
+        </div>
+      )}
 
 
       {project.imageSrc && (
@@ -354,14 +373,20 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
                 <select
                   value={layer.pencilGrade}
                   onChange={(e) => handleLayerMetaChange(idx, { pencilGrade: e.target.value as PencilHardness })}
-                  title={`${PENCIL_DATABASE[layer.pencilGrade].name} — ${PENCIL_DATABASE[layer.pencilGrade].category}\nUsage: ${PENCIL_DATABASE[layer.pencilGrade].recommendedFor}\nTechnique: ${PENCIL_DATABASE[layer.pencilGrade].strokeAdvice}`}
+                  title={formatPencilTooltip(layer.pencilGrade)}
                   className="bg-studio-800 border border-studio-700 text-studio-accent font-mono font-bold px-2 py-0.5 rounded cursor-pointer"
                 >
-                  {PENCIL_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {p} ({PENCIL_DATABASE[p].name})
-                    </option>
-                  ))}
+                  {(availablePencilOptions.includes(layer.pencilGrade)
+                    ? availablePencilOptions
+                    : [layer.pencilGrade, ...availablePencilOptions]
+                  ).map((p) => {
+                    const info = PENCIL_DATABASE[p];
+                    return (
+                      <option key={p} value={p}>
+                        {info ? `${info.displayName} (${info.name})` : p}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { capRenderSize } from '@/utils/renderScale';
 import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace, fetchLightDirection, scaleLightDirectionToImageSpace } from '@/utils/analysisApi';
 import { applyEstimatedLightDirection, estimateLightDirectionFromCentroids } from '@/utils/lightDirection';
 import { INITIAL_PROJECT_STATE } from '@/utils/initialProjectState';
+import { generateDefaultLayerMeta } from '@/utils/pencilGrades';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
 import { TopStrip } from '@/components/studio/TopStrip';
 import { ValueStudyPanel } from '@/components/studio/ValueStudyPanel';
@@ -583,7 +584,16 @@ export default function StudioHomePage() {
 
             <MediumFooterSelector
               currentMedium={project.medium}
-              onChangeMedium={(medium) => setProject((prev) => ({ ...prev, medium }))}
+              onChangeMedium={(medium) =>
+                setProject((prev) => {
+                  if (prev.medium === medium) return prev;
+                  return {
+                    ...prev,
+                    medium,
+                    layerMeta: generateDefaultLayerMeta(prev.numValueLayers, medium),
+                  };
+                })
+              }
             />
           </aside>
         )}
