@@ -1,5 +1,6 @@
 import type { RenderSize } from './renderScale';
 import type { HistogramStats, LandmarkStats, LoomisAnchorPoints, ReillyAnchorPoints } from '../types/studio';
+import type { LightDirectionResult } from '../types/lightDirection';
 
 /**
  * Re-draws the source image at the given (display-capped) size and encodes it as PNG.
@@ -315,4 +316,75 @@ export function generateFallbackEdgeSegments(
     },
   ];
 }
+
+/**
+ * Rescales light direction terminator line and centroids from display-capped space to native image space.
+ */
+export function scaleLightDirectionToImageSpace(
+  result: LightDirectionResult,
+  size: RenderSize,
+  nativeWidth: number,
+  nativeHeight: number,
+): LightDirectionResult {
+  const scaleX = nativeWidth / size.width;
+  const scaleY = nativeHeight / size.height;
+
+  return {
+    ...result,
+    terminatorLine: {
+      p1: {
+        x: Math.round(result.terminatorLine.p1.x * scaleX * 10) / 10,
+        y: Math.round(result.terminatorLine.p1.y * scaleY * 10) / 10,
+      },
+      p2: {
+        x: Math.round(result.terminatorLine.p2.x * scaleX * 10) / 10,
+        y: Math.round(result.terminatorLine.p2.y * scaleY * 10) / 10,
+      },
+    },
+    shadowCentroid: result.shadowCentroid
+      ? {
+          x: Math.round(result.shadowCentroid.x * scaleX * 10) / 10,
+          y: Math.round(result.shadowCentroid.y * scaleY * 10) / 10,
+        }
+      : undefined,
+    litCentroid: result.litCentroid
+      ? {
+          x: Math.round(result.litCentroid.x * scaleX * 10) / 10,
+          y: Math.round(result.litCentroid.y * scaleY * 10) / 10,
+        }
+      : undefined,
+  };
+}
+
+/**
+ * Posts the display-capped Reference Image to the light-direction endpoint
+ * and returns the estimated light direction and terminator line.
+ */
+export async function fetchLightDirection(
+  image: HTMLImageElement | HTMLCanvasElement,
+  size: RenderSize,
+  shadowThreshold?: number,
+): Promise<LightDirectionResult> {
+  const capped = await toDisplayCappedBlob(image, size);
+
+  const form = new FormData();
+  form.append('file', capped, 'reference.png');
+
+  let res: Response;
+  try {
+    const url = shadowThreshold !== undefined
+      ? `/api/cv/light-direction?shadow_threshold=${shadowThreshold}`
+      : '/api/cv/light-direction';
+    res = await fetch(url, { method: 'POST', body: form });
+  } catch {
+    throw new Error('Could not reach the analysis backend');
+  }
+
+  if (!res.ok) {
+    throw new Error(`Light direction analysis failed (${res.status})`);
+  }
+
+  return res.json() as Promise<LightDirectionResult>;
+}
+
 

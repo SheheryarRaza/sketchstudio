@@ -91,6 +91,8 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
     asaro: {
       planesOpacity: 0.7,
       lightAngleDeg: 45,
+      showTerminator: true,
+      terminatorSource: 'default',
     },
   },
   viewMode: 'valueStudy',

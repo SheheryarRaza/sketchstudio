@@ -189,9 +189,13 @@ export interface DrawingMethodState {
   asaro: {
     planesOpacity: number;
     lightAngleDeg: number;
+    showTerminator: boolean;
+    terminatorSource: LightDirectionSource;
+    terminatorLine?: TerminatorLine;
   };
 }
 
+import type { LightDirectionSource, TerminatorLine } from './lightDirection';
 import type { EdgeQualityState } from './edgeQuality';
 
 export interface ProjectState {

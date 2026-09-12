@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Response, Query
 from app.services.cv_service import CVService
 
@@ -39,4 +40,15 @@ async def suggest_edges(
     contents = await file.read()
     segments = CVService.suggest_edge_segments(contents, low_thresh, high_thresh, max_segments=max_segments)
     return segments
+
+@router.post("/light-direction")
+async def estimate_light_direction(
+    file: UploadFile = File(...),
+    shadow_threshold: Optional[int] = Query(None, ge=1, le=254)
+):
+    """Estimate light direction angle and terminator line from luminance histogram and shadow shape."""
+    contents = await file.read()
+    result = CVService.estimate_light_direction(contents, shadow_threshold=shadow_threshold)
+    return result
+
 
