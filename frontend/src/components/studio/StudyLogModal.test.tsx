@@ -80,3 +80,22 @@ test('StudyLogModal renders sessions history and summary stats when entries exis
   assert.match(html, /30s/);
   assert.match(html, /2m/);
 });
+
+test('StudyLogModal disables preset buttons when hasReferenceImage is false', () => {
+  const html = renderToStaticMarkup(
+    <StudyLogModal
+      isOpen={true}
+      entries={[]}
+      onClose={noop}
+      onStartSession={noop}
+      onDeleteEntry={noop}
+      onUpdateNotes={noop}
+      onClearLog={noop}
+      hasReferenceImage={false}
+    />
+  );
+
+  assert.match(html, /disabled=""/);
+  assert.match(html, /Upload a Reference Image first/);
+});
+

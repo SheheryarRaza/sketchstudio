@@ -1,4 +1,4 @@
-import type { StudyLogEntry, StudyLogStats } from '../types/gesture';
+import type { StudyLogEntry, StudyLogSummary } from '../types/gesture';
 
 export const STUDY_LOG_STORAGE_KEY = 'sketchstudio_study_log_v1';
 
@@ -146,9 +146,9 @@ export const clearStudyLog = (storage?: StorageLike): void => {
 };
 
 /**
- * Computes aggregate summary statistics for the study log.
+ * Computes aggregate summary metrics for the study log.
  */
-export const computeStudyLogStats = (entries: StudyLogEntry[]): StudyLogStats => {
+export const computeStudyLogSummary = (entries: StudyLogEntry[]): StudyLogSummary => {
   const sessionsByDuration: Record<number, number> = {};
   const referenceTitles = new Set<string>();
   let totalDurationSeconds = 0;
@@ -169,6 +169,10 @@ export const computeStudyLogStats = (entries: StudyLogEntry[]): StudyLogStats =>
     lastSessionDate: entries.length > 0 ? entries[0].date : null,
   };
 };
+
+/** @deprecated alias for computeStudyLogSummary */
+export const computeStudyLogStats = computeStudyLogSummary;
+
 
 /**
  * Formats a duration in seconds into a clean human label (e.g. "30s", "2m", "1h 15m").

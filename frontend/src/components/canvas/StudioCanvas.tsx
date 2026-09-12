@@ -674,6 +674,18 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         />
       )}
 
+      {/* Gesture study completed overlay (#46) - rendered at viewport level so pan/zoom does not distort it */}
+      {gestureState && gestureState.status === 'completed' && (
+        <GestureCompleteOverlay
+          session={gestureState}
+          onToggleReferenceHidden={onToggleReferenceHidden || (() => {})}
+          onStartSession={onStartGestureSession || (() => {})}
+          onOpenStudyLog={onOpenStudyLog || (() => {})}
+          onSaveNote={onSaveGestureNote || (() => {})}
+          onDismiss={onDismissGestureOverlay}
+        />
+      )}
+
       {/* Main Drawing Canvas when Image is Loaded */}
       {project.imageSrc ? (
         <div
@@ -777,23 +789,6 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
                 }
               />
             </>
-          )}
-
-          {/* Gesture study completed overlay (#46) - counter-mirrored if canvas is flipped */}
-          {gestureState && gestureState.status === 'completed' && (
-            <div
-              className="absolute inset-0 z-30"
-              style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
-            >
-              <GestureCompleteOverlay
-                session={gestureState}
-                onToggleReferenceHidden={onToggleReferenceHidden || (() => {})}
-                onStartSession={onStartGestureSession || (() => {})}
-                onOpenStudyLog={onOpenStudyLog || (() => {})}
-                onSaveNote={onSaveGestureNote || (() => {})}
-                onDismiss={onDismissGestureOverlay}
-              />
-            </div>
           )}
         </div>
       ) : (

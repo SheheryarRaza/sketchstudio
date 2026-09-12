@@ -95,7 +95,7 @@ export const GestureCompleteOverlay: React.FC<GestureCompleteOverlayProps> = ({
           <button
             onClick={onOpenStudyLog}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-studio-800 hover:bg-studio-750 text-slate-200 hover:text-white text-xs font-bold border border-studio-700/60 shadow transition-all"
-            title="Open study log history and stats"
+            title="Open Study Log"
           >
             <BookOpen className="w-4 h-4 text-emerald-400" />
             <span>View Study Log</span>
@@ -156,7 +156,7 @@ export const GestureCompleteOverlay: React.FC<GestureCompleteOverlayProps> = ({
       <button
         onClick={onOpenStudyLog}
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-studio-800 hover:bg-studio-750 text-slate-300 hover:text-white text-xs font-semibold transition-colors"
-        title="View study history"
+        title="Open Study Log"
       >
         <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
         <span>View Study Log</span>

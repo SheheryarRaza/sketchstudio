@@ -10,7 +10,7 @@ export interface StudyLogEntry {
   notes?: string;
 }
 
-export interface StudyLogStats {
+export interface StudyLogSummary {
   totalSessions: number;
   totalDurationSeconds: number;
   sessionsByDuration: Record<number, number>;
@@ -26,3 +26,15 @@ export interface GestureSessionState {
   isReferenceHidden: boolean;
   completedEntryId: string | null;
 }
+
+export interface GestureActions {
+  onPause: () => void;
+  onResume: () => void;
+  onCancel: () => void;
+  onToggleReferenceHidden: (hidden: boolean) => void;
+  onStartSession: (durationSeconds: number) => void;
+  onOpenStudyLog: () => void;
+  onSaveNote: (notes: string) => void;
+  onDismissOverlay?: () => void;
+}
+

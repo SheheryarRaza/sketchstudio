@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { StudyLogEntry } from '../../types/gesture';
-import { computeStudyLogStats, formatStudyDuration } from '../../utils/studyLog';
+import { computeStudyLogSummary, formatStudyDuration } from '../../utils/studyLog';
 import { GESTURE_PRESETS } from '../../utils/gestureSession';
 import {
   Timer,
@@ -25,6 +25,7 @@ interface StudyLogModalProps {
   onUpdateNotes: (id: string, notes: string) => void;
   onClearLog: () => void;
   currentReferenceTitle?: string;
+  hasReferenceImage?: boolean;
 }
 
 export const StudyLogModal: React.FC<StudyLogModalProps> = ({
@@ -36,6 +37,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
   onUpdateNotes,
   onClearLog,
   currentReferenceTitle,
+  hasReferenceImage = true,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
@@ -43,7 +45,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
 
   if (!isOpen) return null;
 
-  const stats = computeStudyLogStats(entries);
+  const summary = computeStudyLogSummary(entries);
 
   const handleStartEditing = (entry: StudyLogEntry) => {
     setEditingId(entry.id);
@@ -83,7 +85,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
                 Gesture Study Log
                 <span className="text-xs px-2 py-0.5 rounded-full bg-studio-800 text-slate-300 font-mono font-medium">
-                  {stats.totalSessions} {stats.totalSessions === 1 ? 'Session' : 'Sessions'}
+                  {summary.totalSessions} {summary.totalSessions === 1 ? 'Session' : 'Sessions'}
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
@@ -115,11 +117,13 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
               <button
                 key={preset.seconds}
                 onClick={() => {
+                  if (!hasReferenceImage) return;
                   onStartSession(preset.seconds);
                   onClose();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-800 hover:bg-studio-750 text-slate-200 hover:text-white text-xs font-bold border border-studio-700/60 hover:border-studio-accent transition-all"
-                title={preset.description}
+                disabled={!hasReferenceImage}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-studio-800 hover:bg-studio-750 text-slate-200 hover:text-white text-xs font-bold border border-studio-700/60 hover:border-studio-accent disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                title={hasReferenceImage ? preset.description : 'Upload a Reference Image first to start timed gesture practice'}
               >
                 <Play className="w-3 h-3 text-studio-accent fill-current" />
                 <span>{preset.shortLabel}</span>
@@ -128,7 +132,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
           </div>
         </div>
 
-        {/* Stats Metrics Overview */}
+        {/* Summary Overview */}
         <div className="px-6 py-3.5 border-b border-studio-800 grid grid-cols-3 gap-3 bg-studio-900/30">
           <div className="p-2.5 rounded-xl bg-studio-850/60 border border-studio-800 flex items-center gap-3">
             <Flame className="w-4 h-4 text-studio-accent shrink-0" />
@@ -137,7 +141,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
                 Total Sessions
               </div>
               <div className="text-sm font-black text-slate-100">
-                {stats.totalSessions}
+                {summary.totalSessions}
               </div>
             </div>
           </div>
@@ -149,7 +153,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
                 Practice Time
               </div>
               <div className="text-sm font-black text-slate-100">
-                {formatStudyDuration(stats.totalDurationSeconds)}
+                {formatStudyDuration(summary.totalDurationSeconds)}
               </div>
             </div>
           </div>
@@ -161,7 +165,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
                 Unique References
               </div>
               <div className="text-sm font-black text-slate-100">
-                {stats.uniqueReferencesCount}
+                {summary.uniqueReferencesCount}
               </div>
             </div>
           </div>
@@ -265,7 +269,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
           {entries.length > 0 ? (
             isConfirmingClear ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-rose-300 font-medium">Clear all history?</span>
+                <span className="text-xs text-rose-300 font-medium">Clear all study sessions?</span>
                 <button
                   onClick={() => {
                     onClearLog();
@@ -287,7 +291,7 @@ export const StudyLogModal: React.FC<StudyLogModalProps> = ({
                 onClick={() => setIsConfirmingClear(true)}
                 className="text-xs text-slate-500 hover:text-rose-400 transition-colors"
               >
-                Clear Log History
+                Clear Study Log
               </button>
             )
           ) : (

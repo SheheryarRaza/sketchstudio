@@ -220,24 +220,34 @@ export default function StudioHomePage() {
 
     const interval = setInterval(() => {
       setGestureState((prev) => {
-        const { state: nextState, justCompleted } = tickGestureSession(prev, 1);
-        if (justCompleted) {
-          const { entry, log } = appendStudyLogEntry({
-            durationSeconds: prev.targetDuration,
-            referenceTitle: prev.referenceTitle || project.title || 'Untitled Reference',
-          });
-          setStudyLog(log);
-          return {
-            ...nextState,
-            completedEntryId: entry.id,
-          };
-        }
+        const { state: nextState } = tickGestureSession(prev, 1);
         return nextState;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gestureState.status, project.title]);
+  }, [gestureState.status]);
+
+  // Persist completed gesture study session cleanly without impure updater side effects
+  useEffect(() => {
+    if (gestureState.status === 'completed' && !gestureState.completedEntryId) {
+      const { entry, log } = appendStudyLogEntry({
+        durationSeconds: gestureState.targetDuration,
+        referenceTitle: gestureState.referenceTitle || project.title || 'Untitled Reference',
+      });
+      setStudyLog(log);
+      setGestureState((prev) => ({
+        ...prev,
+        completedEntryId: entry.id,
+      }));
+    }
+  }, [
+    gestureState.status,
+    gestureState.completedEntryId,
+    gestureState.targetDuration,
+    gestureState.referenceTitle,
+    project.title,
+  ]);
 
   const handleStartGestureSession = (durationSeconds: number) => {
     setGestureState((prev) =>
@@ -511,6 +521,7 @@ export default function StudioHomePage() {
         onUpdateNotes={handleUpdateStudyLogNotes}
         onClearLog={handleClearStudyLog}
         currentReferenceTitle={project.title}
+        hasReferenceImage={Boolean(project.imageSrc)}
       />
     </main>
   );

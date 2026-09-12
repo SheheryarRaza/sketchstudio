@@ -8,6 +8,7 @@ import {
   updateStudyLogEntryNotes,
   deleteStudyLogEntry,
   clearStudyLog,
+  computeStudyLogSummary,
   computeStudyLogStats,
   formatStudyDuration,
   type StorageLike,
@@ -171,7 +172,7 @@ test('clearStudyLog removes study log key from storage', () => {
   assert.equal(storage.getItem(STUDY_LOG_STORAGE_KEY), null);
 });
 
-test('computeStudyLogStats calculates totals, duration breakdowns, and unique reference count', () => {
+test('computeStudyLogSummary calculates totals, duration breakdowns, and unique reference count', () => {
   const entries: StudyLogEntry[] = [
     { id: '1', date: '2026-09-10T10:00:00Z', durationSeconds: 30, referenceTitle: 'Ref A' },
     { id: '2', date: '2026-09-11T10:00:00Z', durationSeconds: 30, referenceTitle: 'Ref B' },
@@ -179,22 +180,22 @@ test('computeStudyLogStats calculates totals, duration breakdowns, and unique re
     { id: '4', date: '2026-09-12T11:00:00Z', durationSeconds: 300, referenceTitle: 'Ref C' },
   ];
 
-  const stats = computeStudyLogStats(entries);
-  assert.equal(stats.totalSessions, 4);
-  assert.equal(stats.totalDurationSeconds, 480);
-  assert.equal(stats.sessionsByDuration[30], 2);
-  assert.equal(stats.sessionsByDuration[120], 1);
-  assert.equal(stats.sessionsByDuration[300], 1);
-  assert.equal(stats.uniqueReferencesCount, 3);
-  assert.equal(stats.lastSessionDate, '2026-09-10T10:00:00Z');
+  const summary = computeStudyLogSummary(entries);
+  assert.equal(summary.totalSessions, 4);
+  assert.equal(summary.totalDurationSeconds, 480);
+  assert.equal(summary.sessionsByDuration[30], 2);
+  assert.equal(summary.sessionsByDuration[120], 1);
+  assert.equal(summary.sessionsByDuration[300], 1);
+  assert.equal(summary.uniqueReferencesCount, 3);
+  assert.equal(summary.lastSessionDate, '2026-09-10T10:00:00Z');
 });
 
-test('computeStudyLogStats handles empty log gracefully', () => {
-  const stats = computeStudyLogStats([]);
-  assert.equal(stats.totalSessions, 0);
-  assert.equal(stats.totalDurationSeconds, 0);
-  assert.equal(stats.uniqueReferencesCount, 0);
-  assert.equal(stats.lastSessionDate, null);
+test('computeStudyLogSummary handles empty log gracefully', () => {
+  const summary = computeStudyLogSummary([]);
+  assert.equal(summary.totalSessions, 0);
+  assert.equal(summary.totalDurationSeconds, 0);
+  assert.equal(summary.uniqueReferencesCount, 0);
+  assert.equal(summary.lastSessionDate, null);
 });
 
 test('formatStudyDuration converts seconds to readable human strings', () => {

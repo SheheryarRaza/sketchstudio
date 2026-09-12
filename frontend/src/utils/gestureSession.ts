@@ -41,10 +41,11 @@ export const createInitialGestureState = (): GestureSessionState => ({
 });
 
 export const startGestureSession = (
-  _prevState: GestureSessionState,
+  prevState: GestureSessionState,
   durationSeconds: number,
   referenceTitle: string,
 ): GestureSessionState => ({
+  ...prevState,
   status: 'running',
   targetDuration: durationSeconds,
   remainingSeconds: durationSeconds,
@@ -101,7 +102,8 @@ export const resumeGestureSession = (state: GestureSessionState): GestureSession
   };
 };
 
-export const cancelGestureSession = (_state: GestureSessionState): GestureSessionState => {
+export const cancelGestureSession = (state: GestureSessionState): GestureSessionState => {
+  if (state.status === 'idle') return state;
   return createInitialGestureState();
 };
 
