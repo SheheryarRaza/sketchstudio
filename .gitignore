@@ -15,11 +15,9 @@ dist/
 out/
 build/
 
-# Database & Local Uploads
+# Database
 *.db
 *.sqlite
-backend/uploads/*
-!backend/uploads/.gitkeep
 
 # Operating system
 .DS_Store

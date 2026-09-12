@@ -5,6 +5,4 @@ __pycache__
 *.pyd
 .git
 .gitignore
-uploads/*
-!uploads/.gitkeep
 sketch_studio.db
