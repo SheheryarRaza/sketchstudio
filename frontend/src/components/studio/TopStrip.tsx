@@ -2,7 +2,7 @@
 
 import React, { useRef } from 'react';
 import type { AtelierStage, ProjectState } from '../../types/studio';
-import { Upload, Ruler, BookOpen, Download, Compass, Timer } from 'lucide-react';
+import { Upload, Ruler, BookOpen, Download, Compass, Timer, HelpCircle } from 'lucide-react';
 
 interface TopStripProps {
   project: ProjectState;
@@ -13,6 +13,7 @@ interface TopStripProps {
   onOpenTeaching: () => void;
   onOpenExport: () => void;
   onOpenGestureStudy?: () => void;
+  onOpenTour?: () => void;
   isGestureActive?: boolean;
 }
 
@@ -42,6 +43,7 @@ export const TopStrip: React.FC<TopStripProps> = ({
   onOpenTeaching,
   onOpenExport,
   onOpenGestureStudy,
+  onOpenTour,
   isGestureActive,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,6 +157,15 @@ export const TopStrip: React.FC<TopStripProps> = ({
           aria-label="Gesture Study & Study Log"
         >
           <Timer className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={onOpenTour}
+          className="p-2 rounded text-slate-300 hover:text-white hover:bg-studio-850"
+          title="Studio Walkthrough"
+          aria-label="Studio Walkthrough"
+        >
+          <HelpCircle className="w-4 h-4" />
         </button>
 
         <div className="w-px h-4 bg-studio-800 mx-1" />
