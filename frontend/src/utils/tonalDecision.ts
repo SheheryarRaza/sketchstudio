@@ -67,12 +67,14 @@ export function createTonalPixel(): TonalPixel {
   return { r: 0, g: 0, b: 0, a: 0 };
 }
 
-function bandFor(luminance: number, layers: ValueLayer[]): ValueLayer | undefined {
+export function bandFor(luminance: number, layers: ValueLayer[]): ValueLayer | undefined {
   for (const layer of layers) {
     if (luminance >= layer.minThreshold && luminance <= layer.maxThreshold) return layer;
   }
   return undefined;
 }
+
+export { capRenderSize, DEFAULT_RENDER_CAP_PX, type RenderSize } from './renderScale';
 
 /**
  * Decides what a single luminance becomes on the canvas. Writes into `out` rather
@@ -118,7 +120,7 @@ export function decideTonalPixel(
     return;
   }
 
-  const value = mode === 'posterized'
+  const value = mode === 'valueStudy'
     ? Math.round((band.minThreshold + band.maxThreshold) / 2)
     : luminance;
 
@@ -127,3 +129,4 @@ export function decideTonalPixel(
   out.b = value;
   out.a = Math.round(sourceAlpha * band.opacity);
 }
+

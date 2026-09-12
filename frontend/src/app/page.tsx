@@ -456,11 +456,11 @@ export default function StudioHomePage() {
         nextActiveMethod = 'loomis';
         nextGridEnabled = true;
       } else if (newStage === 3) {
-        nextViewMode = 'posterized';
+        nextViewMode = 'valueStudy';
         nextActiveMethod = 'none';
         nextGridEnabled = true;
       } else if (newStage === 4) {
-        nextViewMode = 'valueStudy';
+        nextViewMode = 'tonalMask';
         nextActiveMethod = 'asaro';
         nextGridEnabled = false;
       } else if (newStage === 5) {

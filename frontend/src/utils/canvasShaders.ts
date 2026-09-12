@@ -15,7 +15,7 @@ export function renderValueStudyOnCanvas(
   sourceImage: HTMLImageElement | HTMLCanvasElement,
   targetCanvas: HTMLCanvasElement,
   layers: ValueLayer[],
-  viewMode: 'original' | 'valueStudy' | 'posterized',
+  viewMode: 'original' | 'valueStudy' | 'tonalMask',
   splitRatio?: number, // if split view (0 to 1)
   isolation: IsolationTarget = { kind: 'none' },
   ghostOpacity: number = 0.18,
@@ -45,60 +45,45 @@ export function renderValueStudyOnCanvas(
     return;
   }
 
-  try {
-    const imgData = tempCtx.getImageData(0, 0, width, height);
-    const data = imgData.data;
-    const outputData = ctx.createImageData(width, height);
-    const out = outputData.data;
+  // Pure pixel shader: extract pixel buffer and decide each tonal pixel.
+  // Failures (such as tainted canvas) are surfaced rather than fabricated with a fake CSS filter.
+  const imgData = tempCtx.getImageData(0, 0, width, height);
+  const data = imgData.data;
+  const outputData = ctx.createImageData(width, height);
+  const out = outputData.data;
 
-    const isolated = isolatedLayerIds(layers, isolation, familyFloors);
-    const decided = createTonalPixel();
-    const renderMode = viewMode === 'posterized' ? 'posterized' : 'valueStudy';
+  const isolated = isolatedLayerIds(layers, isolation, familyFloors);
+  const decided = createTonalPixel();
+  const renderMode = viewMode === 'tonalMask' ? 'tonalMask' : 'valueStudy';
 
-    const splitX = splitRatio !== undefined ? Math.floor(width * splitRatio) : -1;
+  const splitX = splitRatio !== undefined ? Math.floor(width * splitRatio) : -1;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const pixelIndex = i / 4;
-      const px = pixelIndex % width;
+  for (let i = 0; i < data.length; i += 4) {
+    const pixelIndex = i / 4;
+    const px = pixelIndex % width;
 
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
 
-      // If in split mode and to the left of split, keep original
-      if (splitX >= 0 && px < splitX) {
-        out[i] = r;
-        out[i + 1] = g;
-        out[i + 2] = b;
-        out[i + 3] = a;
-        continue;
-      }
-
-      const lum = getLuminance(r, g, b);
-
-      decideTonalPixel(lum, a, layers, renderMode, isolated, ghostOpacity, decided);
-      out[i] = decided.r;
-      out[i + 1] = decided.g;
-      out[i + 2] = decided.b;
-      out[i + 3] = decided.a;
+    // If in split mode and to the left of split, keep original
+    if (splitX >= 0 && px < splitX) {
+      out[i] = r;
+      out[i + 1] = g;
+      out[i + 2] = b;
+      out[i + 3] = a;
+      continue;
     }
 
-    ctx.putImageData(outputData, 0, 0);
-  } catch (err) {
-    // If canvas is tainted by external CORS, fallback gracefully to filter rendering
-    ctx.save();
-    const filters: string[] = [];
-    if (viewMode === 'valueStudy' || viewMode === 'posterized') {
-      filters.push('grayscale(100%) contrast(120%)');
-    }
-    if (blurRadius > 0) {
-      filters.push(`blur(${blurRadius}px)`);
-    }
-    if (filters.length > 0) {
-      ctx.filter = filters.join(' ');
-    }
-    ctx.drawImage(sourceImage, 0, 0, width, height);
-    ctx.restore();
+    const lum = getLuminance(r, g, b);
+
+    decideTonalPixel(lum, a, layers, renderMode, isolated, ghostOpacity, decided);
+    out[i] = decided.r;
+    out[i + 1] = decided.g;
+    out[i + 2] = decided.b;
+    out[i + 3] = decided.a;
   }
+
+  ctx.putImageData(outputData, 0, 0);
 }

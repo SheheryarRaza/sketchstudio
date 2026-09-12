@@ -33,7 +33,7 @@ export interface ValueFamilyFloors {
   lightFloor: number; // boundary between halftones and lights
 }
 
-export type TonalRenderMode = 'valueStudy' | 'posterized';
+export type TonalRenderMode = 'valueStudy' | 'tonalMask';
 
 export interface HistogramStats {
   width: number;
@@ -216,7 +216,7 @@ export interface ProjectState {
   paperMapping: PaperMappingConfig;
   methods: DrawingMethodState;
   edgeQuality?: EdgeQualityState;
-  viewMode: 'original' | 'valueStudy' | 'edges' | 'split' | 'posterized';
+  viewMode: 'original' | 'valueStudy' | 'tonalMask' | 'edges' | 'split';
   splitPosition: number; // 0-100 percentage
   blurRadius: number; // in pixels, squint mode blur radius applied to canvas view
   isFlippedHorizontal: boolean; // view-only horizontal mirror to catch symmetry/tilt errors
