@@ -1,4 +1,4 @@
-﻿import type { ProjectState } from '../types/studio';
+import type { ProjectState } from '../types/studio';
 import { generateDefaultLayerMeta } from './pencilGrades';
 import { generateDefaultCutPoints } from './cutPoints';
 import { DEFAULT_VALUE_FAMILY_FLOORS } from './tonalDecision';
@@ -95,6 +95,7 @@ export const INITIAL_PROJECT_STATE: ProjectState = {
   viewMode: 'valueStudy',
   splitPosition: 50,
   blurRadius: 0,
+  isFlippedHorizontal: false,
   isolation: { kind: 'none' },
   ghostOpacity: 0.18,
   valueFamilyFloors: DEFAULT_VALUE_FAMILY_FLOORS,

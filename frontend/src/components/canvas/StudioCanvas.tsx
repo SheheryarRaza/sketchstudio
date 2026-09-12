@@ -13,6 +13,11 @@ import {
   MAX_BLUR_RADIUS,
   MIN_BLUR_RADIUS,
 } from '../../utils/squint';
+import {
+  computeCanvasTransform,
+  toggleFlipHorizontal,
+  mapPointerToNativeX,
+} from '../../utils/flipHorizontal';
 import { GridOverlay } from './GridOverlay';
 import { MethodOverlays } from './MethodOverlays';
 import { CaliperOverlay } from './CaliperOverlay';
@@ -30,6 +35,7 @@ import {
   Loader2,
   AlertTriangle,
   RefreshCw,
+  FlipHorizontal,
 } from 'lucide-react';
 
 interface StudioCanvasProps {
@@ -347,6 +353,38 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     return () => window.removeEventListener('paste', handlePaste);
   }, [onLoadImageFile]);
 
+  // Toggle flip horizontal view state (#45)
+  const handleToggleFlipHorizontal = useCallback(() => {
+    onUpdateProject(toggleFlipHorizontal);
+  }, [onUpdateProject]);
+
+  // One-key keyboard shortcut ('h' or 'f') to mirror the Reference Image horizontally (#45)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+
+      if (e.key === 'h' || e.key === 'H') {
+        if (!project.imageSrc) return;
+        e.preventDefault();
+        handleToggleFlipHorizontal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [project.imageSrc, handleToggleFlipHorizontal]);
+
   // Zoom with Wheel
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -367,7 +405,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
     } else if (isDraggingSplit && containerRef.current && project.imageWidth > 0) {
       const rect = containerRef.current.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const pct = mapPointerToNativeX(e.clientX, rect, 100, Boolean(project.isFlippedHorizontal));
       onUpdateProject(prev => ({ ...prev, splitPosition: pct }));
     }
   };
@@ -505,6 +543,24 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
 
           <div className="w-px h-4 bg-studio-800 mx-1" />
 
+          {/* Flip horizontal button to mirror reference image (#45) */}
+          <button
+            onClick={handleToggleFlipHorizontal}
+            className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 font-medium ${
+              project.isFlippedHorizontal
+                ? 'bg-studio-accent text-slate-950 font-bold shadow-sm'
+                : 'hover:bg-studio-800 text-slate-300 hover:text-white'
+            }`}
+            title="Flip horizontal to catch symmetry and tilt errors (H)"
+            aria-label="Flip horizontal"
+            aria-pressed={Boolean(project.isFlippedHorizontal)}
+          >
+            <FlipHorizontal className="w-3.5 h-3.5" />
+            <span>Flip</span>
+          </button>
+
+          <div className="w-px h-4 bg-studio-800 mx-1" />
+
           {/* View menu: render mode, split-compare, and background color live here (#39) */}
           <div className="relative">
             <button
@@ -574,7 +630,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         <div
           className="relative shrink-0 shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform duration-75 origin-center rounded-lg overflow-hidden ring-1 ring-studio-800/80"
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+            transform: computeCanvasTransform(pan, scale, Boolean(project.isFlippedHorizontal)),
             width: project.imageWidth || 600,
             height: project.imageHeight || 800,
           }}
@@ -586,15 +642,21 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             height={renderSize.height}
           />
 
-          {/* Edges View: Loading / Error States */}
+          {/* Edges View: Loading / Error States - counter-mirrored so status text and retry button remain upright */}
           {project.viewMode === 'edges' && edgesState.status === 'loading' && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-studio-950/60 backdrop-blur-sm">
+            <div
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-studio-950/60 backdrop-blur-sm"
+              style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
+            >
               <Loader2 className="w-8 h-8 text-studio-accent animate-spin" />
               <span className="text-xs font-semibold text-slate-200">Extracting contours…</span>
             </div>
           )}
           {project.viewMode === 'edges' && edgesState.status === 'error' && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center">
+            <div
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-studio-950/85 backdrop-blur-sm px-6 text-center"
+              style={project.isFlippedHorizontal ? { transform: 'scaleX(-1)' } : undefined}
+            >
               <AlertTriangle className="w-8 h-8 text-rose-400" />
               <span className="text-sm font-bold text-slate-100">Couldn&apos;t extract contours</span>
               <span className="text-xs text-slate-400 max-w-xs">{edgesState.message}</span>
@@ -630,6 +692,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             grid={project.grid}
             paperMapping={project.paperMapping}
             isDimmed={project.isolation.kind !== 'none'}
+            isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
           />
 
           <MethodOverlays
@@ -638,6 +701,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             methodState={project.methods}
             onChange={(methods) => onUpdateProject(prev => ({ ...prev, methods }))}
             isDimmed={project.isolation.kind !== 'none'}
+            isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
           />
 
           <CaliperOverlay
@@ -647,6 +711,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
             baseUnitDistance={project.methods.triangulation.baseUnitDistance}
             calibration={project.calibration}
             active={project.methods.activeMethod === 'triangulation'}
+            isFlippedHorizontal={Boolean(project.isFlippedHorizontal)}
             onChange={(measurements, baseUnit) =>
               onUpdateProject(prev => ({
                 ...prev,

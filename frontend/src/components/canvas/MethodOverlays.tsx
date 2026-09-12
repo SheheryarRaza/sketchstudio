@@ -3,6 +3,8 @@
 import React, { useState, useRef } from 'react';
 import type { DrawingMethodState } from '../../types/studio';
 
+import { mapPointerToNativeX } from '../../utils/flipHorizontal';
+
 interface MethodOverlaysProps {
   width: number;
   height: number;
@@ -11,6 +13,7 @@ interface MethodOverlaysProps {
   // Dims the Drawing Method overlay to near-invisible while a Tonal Layer/Value
   // Family is isolated, so it stops competing with the isolated flat mask (issue #39).
   isDimmed?: boolean;
+  isFlippedHorizontal?: boolean;
 }
 
 export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
@@ -19,6 +22,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
   methodState,
   onChange,
   isDimmed = false,
+  isFlippedHorizontal = false,
 }) => {
   const { activeMethod, opacity, color, showAnchorPoints } = methodState;
   const [draggingPoint, setDraggingPoint] = useState<string | null>(null);
@@ -35,7 +39,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!draggingPoint || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(width, ((e.clientX - rect.left) / rect.width) * width));
+    const x = mapPointerToNativeX(e.clientX, rect, width, isFlippedHorizontal);
     const y = Math.max(0, Math.min(height, ((e.clientY - rect.top) / rect.height) * height));
 
     if (activeMethod === 'loomis') {
