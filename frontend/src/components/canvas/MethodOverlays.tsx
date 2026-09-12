@@ -94,6 +94,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
       style={{ opacity: isDimmed ? 0.12 : opacity }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
     >
       {activeMethod === 'loomis' && (
         <g stroke={color} fill="none" strokeWidth="2">

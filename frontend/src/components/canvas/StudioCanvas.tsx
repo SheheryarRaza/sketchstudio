@@ -18,6 +18,13 @@ import {
   toggleFlipHorizontal,
   mapPointerToNativeX,
 } from '../../utils/flipHorizontal';
+import {
+  calculateZoomScale,
+  shouldStartPan,
+  computeInitialPan,
+  computePanPoint,
+  registerNonPassiveWheelListener,
+} from '../../utils/canvasEvents';
 import { GridOverlay } from './GridOverlay';
 import { MethodOverlays } from './MethodOverlays';
 import { CaliperOverlay } from './CaliperOverlay';
@@ -477,34 +484,51 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [project.imageSrc, handleToggleFlipHorizontal, handleToggleEdgeQuality]);
 
-  // Zoom with Wheel
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    setScale(prev => Math.min(8, Math.max(0.08, prev * zoomFactor)));
-  };
+  // Zoom via native non-passive wheel listener so e.preventDefault() actually takes effect (#38)
+  useEffect(() => {
+    return registerNonPassiveWheelListener(containerRef.current, (deltaY) => {
+      setScale((prev) => calculateZoomScale(prev, deltaY));
+    });
+  }, []);
 
-  // Pan
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0 && (e.altKey || e.shiftKey || e.metaKey || (e.target as HTMLElement).tagName === 'CANVAS')) {
+  // Pointer-based Pan and Split Dragging (#38)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement | null;
+    const isInteractive = Boolean(target?.closest('button, input, [role="button"], a, label'));
+    const hasModifierKey = e.altKey || e.shiftKey || e.metaKey;
+    if (
+      shouldStartPan({
+        button: e.button,
+        pointerType: e.pointerType,
+        hasModifierKey,
+        targetTagName: target?.tagName,
+        isInteractiveTarget: isInteractive,
+      })
+    ) {
       setIsPanning(true);
-      setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      setStartPan(computeInitialPan(pan, { x: e.clientX, y: e.clientY }));
+      try {
+        (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+      } catch {}
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent) => {
     if (isPanning) {
-      setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
+      setPan(computePanPoint(startPan, { x: e.clientX, y: e.clientY }));
     } else if (isDraggingSplit && containerRef.current && project.imageWidth > 0) {
       const rect = containerRef.current.getBoundingClientRect();
       const pct = mapPointerToNativeX(e.clientX, rect, 100, Boolean(project.isFlippedHorizontal));
-      onUpdateProject(prev => ({ ...prev, splitPosition: pct }));
+      onUpdateProject((prev) => ({ ...prev, splitPosition: pct }));
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e: React.PointerEvent) => {
     setIsPanning(false);
     setIsDraggingSplit(false);
+    try {
+      (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+    } catch {}
   };
 
   // Reset Zoom to Fit
@@ -530,12 +554,12 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative flex-1 h-full overflow-hidden select-none flex items-center justify-center transition-colors duration-200 ${getBgStyle()}`}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      className={`relative flex-1 h-full overflow-hidden select-none touch-none flex items-center justify-center transition-colors duration-200 ${getBgStyle()}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -838,12 +862,18 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
               {/* Split Screen Slider Bar */}
               {project.viewMode === 'split' && (
                 <div
-                  className="absolute top-0 bottom-0 w-1 bg-studio-accent cursor-ew-resize z-10"
+                  className="absolute top-0 bottom-0 w-1 bg-studio-accent cursor-ew-resize z-10 touch-none"
                   style={{ left: `${project.splitPosition}%` }}
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     e.stopPropagation();
                     setIsDraggingSplit(true);
+                    try {
+                      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+                    } catch {}
                   }}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
                 >
                   <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-studio-accent text-slate-950 flex items-center justify-center text-xs font-black border-2 border-white">
                     ↔
