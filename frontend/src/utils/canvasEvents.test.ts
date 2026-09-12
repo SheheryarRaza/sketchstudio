@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   calculateZoomScale,
   shouldStartPan,
+  subtractPoints,
   computePanPoint,
   computeInitialPan,
   registerNonPassiveWheelListener,
@@ -37,7 +38,7 @@ test('calculateZoomScale returns current scale when deltaY is zero', () => {
 test('shouldStartPan rejects non-primary pointer button', () => {
   assert.equal(
     shouldStartPan({
-      button: 1, // middle button or right button
+      button: 1, // middle button
       pointerType: 'mouse',
       targetTagName: 'CANVAS',
     }),
@@ -74,7 +75,7 @@ test('shouldStartPan rejects interactive targets like buttons and inputs', () =>
   );
 });
 
-test('shouldStartPan accepts touch input without requiring keyboard modifiers', () => {
+test('shouldStartPan accepts primary pointer across touch, pen, and mouse', () => {
   // Touch panning works directly on the canvas or container background
   assert.equal(
     shouldStartPan({
@@ -93,9 +94,8 @@ test('shouldStartPan accepts touch input without requiring keyboard modifiers', 
     }),
     true
   );
-});
 
-test('shouldStartPan accepts pen/stylus input without requiring keyboard modifiers', () => {
+  // Pen/stylus input
   assert.equal(
     shouldStartPan({
       button: 0,
@@ -104,51 +104,40 @@ test('shouldStartPan accepts pen/stylus input without requiring keyboard modifie
     }),
     true
   );
-});
 
-test('shouldStartPan accepts mouse on CANVAS or with modifiers, rejecting unmodified mouse on background', () => {
-  // Mouse on canvas directly
+  // Mouse input on canvas or workspace background
   assert.equal(
     shouldStartPan({
       button: 0,
       pointerType: 'mouse',
       targetTagName: 'CANVAS',
-      isModified: false,
     }),
     true
   );
 
-  // Mouse with Alt/Shift/Meta modifier key anywhere
   assert.equal(
     shouldStartPan({
       button: 0,
       pointerType: 'mouse',
       targetTagName: 'DIV',
-      isModified: true,
     }),
     true
   );
+});
 
-  // Mouse on background without modifier does not trigger pan
-  assert.equal(
-    shouldStartPan({
-      button: 0,
-      pointerType: 'mouse',
-      targetTagName: 'DIV',
-      isModified: false,
-    }),
-    false
-  );
+test('subtractPoints computes coordinate differences', () => {
+  assert.deepEqual(subtractPoints({ x: 300, y: 200 }, { x: 100, y: 50 }), { x: 200, y: 150 });
+  assert.deepEqual(subtractPoints({ x: 50, y: 20 }, { x: 100, y: 50 }), { x: -50, y: -30 });
 });
 
 test('computeInitialPan and computePanPoint calculate correct panning coordinates', () => {
   const currentPan = { x: 100, y: 50 };
   const clientPoint = { x: 300, y: 200 };
 
-  const startPan = computeInitialPan(currentPan, clientPoint.x, clientPoint.y);
+  const startPan = computeInitialPan(currentPan, clientPoint);
   assert.deepEqual(startPan, { x: 200, y: 150 });
 
-  const nextPan = computePanPoint(startPan, 350, 220);
+  const nextPan = computePanPoint(startPan, { x: 350, y: 220 });
   assert.deepEqual(nextPan, { x: 150, y: 70 });
 });
 
@@ -205,4 +194,3 @@ test('registerNonPassiveWheelListener registers non-passive wheel listener and i
   assert.equal(removedEvent, 'wheel');
   assert.equal(removedHandler, registeredHandler);
 });
-

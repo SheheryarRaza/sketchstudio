@@ -494,19 +494,19 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   // Pointer-based Pan and Split Dragging (#38)
   const handlePointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement | null;
-    const isInteractive = Boolean(target?.closest('button, input, [role="button"], a'));
-    const isModified = e.altKey || e.shiftKey || e.metaKey;
+    const isInteractive = Boolean(target?.closest('button, input, [role="button"], a, label'));
+    const hasModifierKey = e.altKey || e.shiftKey || e.metaKey;
     if (
       shouldStartPan({
         button: e.button,
         pointerType: e.pointerType,
-        isModified,
+        hasModifierKey,
         targetTagName: target?.tagName,
         isInteractiveTarget: isInteractive,
       })
     ) {
       setIsPanning(true);
-      setStartPan(computeInitialPan(pan, e.clientX, e.clientY));
+      setStartPan(computeInitialPan(pan, { x: e.clientX, y: e.clientY }));
       try {
         (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
       } catch {}
@@ -515,7 +515,7 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (isPanning) {
-      setPan(computePanPoint(startPan, e.clientX, e.clientY));
+      setPan(computePanPoint(startPan, { x: e.clientX, y: e.clientY }));
     } else if (isDraggingSplit && containerRef.current && project.imageWidth > 0) {
       const rect = containerRef.current.getBoundingClientRect();
       const pct = mapPointerToNativeX(e.clientX, rect, 100, Boolean(project.isFlippedHorizontal));

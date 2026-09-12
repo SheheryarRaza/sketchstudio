@@ -3,6 +3,13 @@
  * Handles unified pointer events (mouse, touch, pen) and zoom factor calculations.
  */
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export type PointerInputType = 'mouse' | 'touch' | 'pen' | (string & {});
+
 export const MIN_CANVAS_SCALE = 0.08;
 export const MAX_CANVAS_SCALE = 8.0;
 export const ZOOM_IN_FACTOR = 1.12;
@@ -28,8 +35,8 @@ export function calculateZoomScale(
 
 export interface ShouldStartPanParams {
   button: number;
-  pointerType: string;
-  isModified?: boolean;
+  pointerType?: PointerInputType;
+  hasModifierKey?: boolean;
   targetTagName?: string;
   isInteractiveTarget?: boolean;
 }
@@ -37,12 +44,10 @@ export interface ShouldStartPanParams {
 /**
  * Determines whether an incoming pointerdown event should initiate viewport panning.
  *
- * Supports touch, pen, and mouse inputs:
+ * Supports unified pointer interactions across touch, pen, and mouse:
  * - Rejects non-primary buttons (button !== 0).
- * - Rejects clicks/taps on interactive controls (buttons, inputs, overlay handles, sliders).
- * - Accepts touch and pen contacts on the canvas or surrounding background directly.
- * - Accepts mouse contacts on the canvas element, or on the background when keyboard modifiers
- *   (Alt, Shift, or Meta) are held down.
+ * - Rejects clicks/taps on interactive controls (buttons, inputs, labels, overlay handles, sliders).
+ * - Accepts primary touches/clicks on the canvas or surrounding background workspace.
  */
 export function shouldStartPan(params: ShouldStartPanParams): boolean {
   if (params.button !== 0) {
@@ -53,42 +58,31 @@ export function shouldStartPan(params: ShouldStartPanParams): boolean {
     return false;
   }
 
-  const { pointerType, isModified, targetTagName } = params;
+  return true;
+}
 
-  if (pointerType === 'touch' || pointerType === 'pen') {
-    return true;
-  }
-
-  // Mouse input
-  return Boolean(isModified || targetTagName === 'CANVAS');
+/**
+ * Computes the 2D subtraction between two coordinate points (a - b).
+ */
+export function subtractPoints(a: Point, b: Point): Point {
+  return {
+    x: a.x - b.x,
+    y: a.y - b.y,
+  };
 }
 
 /**
  * Computes the initial pan anchor position relative to the client click/touch point.
  */
-export function computeInitialPan(
-  currentPan: { x: number; y: number },
-  clientX: number,
-  clientY: number
-): { x: number; y: number } {
-  return {
-    x: clientX - currentPan.x,
-    y: clientY - currentPan.y,
-  };
+export function computeInitialPan(currentPan: Point, clientPoint: Point): Point {
+  return subtractPoints(clientPoint, currentPan);
 }
 
 /**
  * Computes the updated pan translation from the anchor position and new client coordinates.
  */
-export function computePanPoint(
-  startPan: { x: number; y: number },
-  clientX: number,
-  clientY: number
-): { x: number; y: number } {
-  return {
-    x: clientX - startPan.x,
-    y: clientY - startPan.y,
-  };
+export function computePanPoint(startPan: Point, clientPoint: Point): Point {
+  return subtractPoints(clientPoint, startPan);
 }
 
 /**
@@ -114,4 +108,3 @@ export function registerNonPassiveWheelListener(
     container.removeEventListener('wheel', handleWheel);
   };
 }
-
