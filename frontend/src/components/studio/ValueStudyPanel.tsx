@@ -45,50 +45,103 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   const availablePencilOptions = getPencilGradesForMedium(medium);
 
   const handleLevelCountChange = (count: number) => {
-    onUpdateProject(prev => ({
-      ...prev,
-      numValueLayers: count,
-      layerMeta: generateDefaultLayerMeta(count, prev.medium),
-      cutPoints: generateDefaultCutPoints(count),
-      cutPointSource: 'default',
-      // Layer ids encode the layer count, so a layer isolation cannot outlive a
-      // recount. A Value Family one can, being defined by tonal range.
-      isolation: prev.isolation.kind === 'layer' ? { kind: 'none' } : prev.isolation,
-    }));
+    onUpdateProject(prev => {
+      const med = prev.values?.medium ?? prev.medium;
+      const newMeta = generateDefaultLayerMeta(count, med);
+      const newCuts = generateDefaultCutPoints(count);
+      const currentIso = prev.view?.isolation ?? prev.isolation;
+      const nextIso = currentIso.kind === 'layer' ? { kind: 'none' as const } : currentIso;
+
+      return {
+        ...prev,
+        ...(prev.values
+          ? {
+              values: {
+                ...prev.values,
+                numValueLayers: count,
+                layerMeta: newMeta,
+                cutPoints: newCuts,
+                cutPointSource: 'default',
+              },
+            }
+          : {}),
+        ...(prev.view
+          ? {
+              view: {
+                ...prev.view,
+                isolation: nextIso,
+              },
+            }
+          : {}),
+        numValueLayers: count,
+        layerMeta: newMeta,
+        cutPoints: newCuts,
+        cutPointSource: 'default',
+        isolation: nextIso,
+      };
+    });
   };
 
   const handleLayerMetaChange = (index: number, updates: Partial<ValueLayerMeta>) => {
     onUpdateProject(prev => {
-      const updated = [...prev.layerMeta];
+      const currentMeta = prev.values?.layerMeta ?? prev.layerMeta;
+      const updated = [...currentMeta];
       updated[index] = { ...updated[index], ...updates };
-      return { ...prev, layerMeta: updated };
+      return {
+        ...prev,
+        ...(prev.values ? { values: { ...prev.values, layerMeta: updated } } : {}),
+        layerMeta: updated,
+      };
     });
   };
 
   const handleCutPointChange = (index: number, value: number) => {
-    onUpdateProject(prev => ({
-      ...prev,
-      cutPoints: moveCutPoint(prev.cutPoints, index, value),
-      cutPointSource: 'manual',
-    }));
+    onUpdateProject(prev => {
+      const currentCutPoints = prev.values?.cutPoints ?? prev.cutPoints;
+      const updated = moveCutPoint(currentCutPoints, index, value);
+      return {
+        ...prev,
+        ...(prev.values
+          ? {
+              values: {
+                ...prev.values,
+                cutPoints: updated,
+                cutPointSource: 'manual',
+              },
+            }
+          : {}),
+        cutPoints: updated,
+        cutPointSource: 'manual',
+      };
+    });
   };
 
   // Explicit, artist-triggered re-seed — never runs automatically on upload, so
   // it never overwrites Cut Points the artist has already dragged by hand.
   const handleSeedFromHistogram = () => {
     onUpdateProject(prev => {
-      if (prev.histogram.status !== 'ready') return prev;
-      const seededCutPoints = generateCutPointsFromHistogram(prev.numValueLayers, prev.histogram.data);
+      const hist = prev.image?.histogram ?? prev.histogram;
+      if (hist.status !== 'ready') return prev;
+      const numLayers = prev.values?.numValueLayers ?? prev.numValueLayers;
+      const seededCutPoints = generateCutPointsFromHistogram(numLayers, hist.data);
+      const floors = {
+        lightFloor: seededCutPoints[0],
+        halftoneFloor: seededCutPoints[seededCutPoints.length - 1],
+      };
       return {
         ...prev,
+        ...(prev.values
+          ? {
+              values: {
+                ...prev.values,
+                cutPoints: seededCutPoints,
+                valueFamilyFloors: floors,
+                cutPointSource: 'seeded',
+              },
+            }
+          : {}),
         cutPoints: seededCutPoints,
-        // Read back off the generated Cut Points, not the raw histogram
-        // thresholds, so the Value Family floors can never drift from the
-        // Cut Points actually in effect after clamping.
-        valueFamilyFloors: {
-          lightFloor: seededCutPoints[0],
-          halftoneFloor: seededCutPoints[seededCutPoints.length - 1],
-        },
+        valueFamilyFloors: floors,
         cutPointSource: 'seeded',
       };
     });
@@ -101,10 +154,15 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
   };
 
   const toggleIsolation = (target: IsolationTarget) => {
-    onUpdateProject(prev => ({
-      ...prev,
-      isolation: targetsSame(prev.isolation, target) ? { kind: 'none' } : target,
-    }));
+    onUpdateProject(prev => {
+      const currentIso = prev.view?.isolation ?? prev.isolation;
+      const nextIso = targetsSame(currentIso, target) ? { kind: 'none' as const } : target;
+      return {
+        ...prev,
+        ...(prev.view ? { view: { ...prev.view, isolation: nextIso } } : {}),
+        isolation: nextIso,
+      };
+    });
   };
 
   return (
@@ -282,7 +340,13 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
           </span>
           {isolation.kind !== 'none' && (
             <button
-              onClick={() => onUpdateProject(p => ({ ...p, isolation: { kind: 'none' } }))}
+              onClick={() =>
+                onUpdateProject(p => ({
+                  ...p,
+                  ...(p.view ? { view: { ...p.view, isolation: { kind: 'none' } } } : {}),
+                  isolation: { kind: 'none' },
+                }))
+              }
               className="text-xs font-bold text-studio-accent hover:text-white uppercase tracking-wide"
             >
               Show All
@@ -325,9 +389,14 @@ export const ValueStudyPanel: React.FC<ValueStudyPanelProps> = ({
               min="0"
               max="60"
               value={Math.round(ghostOpacity * 100)}
-              onChange={(e) =>
-                onUpdateProject(p => ({ ...p, ghostOpacity: parseInt(e.target.value) / 100 }))
-              }
+              onChange={(e) => {
+                const val = parseInt(e.target.value) / 100;
+                onUpdateProject(p => ({
+                  ...p,
+                  ...(p.view ? { view: { ...p.view, ghostOpacity: val } } : {}),
+                  ghostOpacity: val,
+                }));
+              }}
               className="w-full h-1 bg-studio-800 rounded-lg cursor-pointer"
             />
           </div>
