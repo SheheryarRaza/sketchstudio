@@ -1,13 +1,37 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { ProjectState, AtelierStage, DrawingMethodType, HistogramStats, LandmarkStats } from '@/types/studio';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import type {
+  ProjectState,
+  ImageProjectState,
+  ValueStudyState,
+  StudioViewState,
+  DrawingMethodState,
+  GridConfig,
+  AtelierStage,
+  DrawingMethodType,
+  HistogramStats,
+  LandmarkStats,
+} from '@/types/studio';
 import type { LightDirectionResult } from '@/types/lightDirection';
 import { capRenderSize } from '@/utils/renderScale';
-import { fetchHistogram, fetchLandmarks, scaleLandmarksToImageSpace, fetchLightDirection, scaleLightDirectionToImageSpace } from '@/utils/analysisApi';
+import {
+  fetchHistogram,
+  fetchLandmarks,
+  scaleLandmarksToImageSpace,
+  fetchLightDirection,
+  scaleLightDirectionToImageSpace,
+} from '@/utils/analysisApi';
 import { applyEstimatedLightDirection, estimateLightDirectionFromCentroids } from '@/utils/lightDirection';
 import { loadSamplePortraitAsDataUrl, type SampleLoadError } from '@/utils/sampleLoader';
-import { INITIAL_PROJECT_STATE } from '@/utils/initialProjectState';
+import {
+  INITIAL_IMAGE_STATE,
+  INITIAL_VALUE_STUDY_STATE,
+  INITIAL_METHODS_STATE,
+  INITIAL_GRID_STATE,
+  INITIAL_VIEW_STATE,
+  assembleProjectState,
+} from '@/utils/initialProjectState';
 import { generateDefaultLayerMeta } from '@/utils/pencilGrades';
 import { StudioCanvas } from '@/components/canvas/StudioCanvas';
 import { TopStrip } from '@/components/studio/TopStrip';
@@ -62,7 +86,21 @@ const SIDEBAR_SECTION_BY_STAGE: Record<AtelierStage, SidebarSection> = {
 };
 
 export default function StudioHomePage() {
-  const [project, setProject] = useState<ProjectState>(INITIAL_PROJECT_STATE);
+  // Concern-scoped studio states (Issue #36): split project state by concern
+  // so unrelated updates (e.g. dragging Cut Points or zooming) do not force
+  // unrelated re-renders of anchor detection, analysis effects, or other panels.
+  const [imageState, setImageState] = useState<ImageProjectState>(INITIAL_IMAGE_STATE);
+  const [valuesState, setValuesState] = useState<ValueStudyState>(INITIAL_VALUE_STUDY_STATE);
+  const [methodsState, setMethodsState] = useState<DrawingMethodState>(INITIAL_METHODS_STATE);
+  const [gridState, setGridState] = useState<GridConfig>(INITIAL_GRID_STATE);
+  const [viewState, setViewState] = useState<StudioViewState>(INITIAL_VIEW_STATE);
+
+  // Composite project view with backward-compatible flat accessors
+  const project = useMemo(
+    () => assembleProjectState(imageState, valuesState, methodsState, gridState, viewState),
+    [imageState, valuesState, methodsState, gridState, viewState]
+  );
+
   // Sandbox Mode owns View Mode, Drawing Method, and Grid directly rather than
   // having the stage set them, so the artist needs a manual way to pick which
   // sidebar section to see while it's active.
@@ -90,30 +128,30 @@ export default function StudioHomePage() {
   const [histogramRetryTick, setHistogramRetryTick] = useState(0);
 
   useEffect(() => {
-    // loadedImageEl can briefly lag project.imageSrc while the new Image element is
+    // loadedImageEl can briefly lag imageState.imageSrc while the new Image element is
     // still decoding — only proceed once it actually holds the current photograph.
-    if (!project.imageSrc || !loadedImageEl || loadedImageEl.src !== project.imageSrc) return;
+    if (!imageState.imageSrc || !loadedImageEl || loadedImageEl.src !== imageState.imageSrc) return;
 
     const cached = histogramCacheRef.current;
-    if (cached && cached.src === project.imageSrc) {
-      setProject((prev) => ({ ...prev, histogram: { status: 'ready', data: cached.data } }));
+    if (cached && cached.src === imageState.imageSrc) {
+      setImageState((prev) => ({ ...prev, histogram: { status: 'ready', data: cached.data } }));
       return;
     }
 
     let cancelled = false;
-    const src = project.imageSrc;
+    const src = imageState.imageSrc;
     const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
-    setProject((prev) => ({ ...prev, histogram: { status: 'loading' } }));
+    setImageState((prev) => ({ ...prev, histogram: { status: 'loading' } }));
 
     fetchHistogram(loadedImageEl, size)
       .then((data) => {
         if (cancelled) return;
         histogramCacheRef.current = { src, data };
-        setProject((prev) => ({ ...prev, histogram: { status: 'ready', data } }));
+        setImageState((prev) => ({ ...prev, histogram: { status: 'ready', data } }));
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setProject((prev) => ({
+        setImageState((prev) => ({
           ...prev,
           histogram: {
             status: 'error',
@@ -125,7 +163,7 @@ export default function StudioHomePage() {
     return () => {
       cancelled = true;
     };
-  }, [project.imageSrc, loadedImageEl, histogramRetryTick]);
+  }, [imageState.imageSrc, loadedImageEl, histogramRetryTick]);
 
   // Landmark Auto-Snap: seeds Anchor Placement from the detected face, or the declared
   // proportional fallback when none is found. Same one-shot-per-image pattern as the
@@ -135,33 +173,37 @@ export default function StudioHomePage() {
   const [landmarksRetryTick, setLandmarksRetryTick] = useState(0);
 
   useEffect(() => {
-    if (!project.imageSrc || !loadedImageEl || loadedImageEl.src !== project.imageSrc) return;
+    if (!imageState.imageSrc || !loadedImageEl || loadedImageEl.src !== imageState.imageSrc) return;
 
     const cached = landmarksCacheRef.current;
-    if (cached && cached.src === project.imageSrc) {
-      setProject((prev) => ({ ...prev, landmarks: { status: 'ready', data: cached.data } }));
+    if (cached && cached.src === imageState.imageSrc) {
+      setImageState((prev) => ({ ...prev, landmarks: { status: 'ready', data: cached.data } }));
       return;
     }
 
     let cancelled = false;
-    const src = project.imageSrc;
+    const src = imageState.imageSrc;
     const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
-    setProject((prev) => ({ ...prev, landmarks: { status: 'loading' } }));
+    setImageState((prev) => ({ ...prev, landmarks: { status: 'loading' } }));
 
     fetchLandmarks(loadedImageEl, size)
       .then((data) => {
         if (cancelled) return;
         landmarksCacheRef.current = { src, data };
         const { loomis, reilly } = scaleLandmarksToImageSpace(data, size);
-        setProject((prev) => ({
+        setImageState((prev) => ({
           ...prev,
           landmarks: { status: 'ready', data },
-          methods: { ...prev.methods, loomis, reilly },
+        }));
+        setMethodsState((prev) => ({
+          ...prev,
+          loomis,
+          reilly,
         }));
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setProject((prev) => ({
+        setImageState((prev) => ({
           ...prev,
           landmarks: {
             status: 'error',
@@ -173,7 +215,7 @@ export default function StudioHomePage() {
     return () => {
       cancelled = true;
     };
-  }, [project.imageSrc, loadedImageEl, landmarksRetryTick]);
+  }, [imageState.imageSrc, loadedImageEl, landmarksRetryTick]);
 
   // Light Direction & Terminator Diagnosis: estimates lighting angle and core-shadow
   // terminator boundary from the Reference Image's histogram and shadow Value Family shape.
@@ -181,78 +223,75 @@ export default function StudioHomePage() {
   const lightDirectionCacheRef = useRef<{ src: string; data: LightDirectionResult } | null>(null);
 
   const handleEstimateLightDirection = useCallback(async () => {
-    if (!project.imageSrc || !loadedImageEl) return;
+    if (!imageState.imageSrc || !loadedImageEl) return;
     setIsEstimatingLight(true);
     try {
-      const src = project.imageSrc;
+      const src = imageState.imageSrc;
       const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
-      const shadowThresh = project.valueFamilyFloors?.halftoneFloor;
+      const shadowThresh = valuesState.valueFamilyFloors?.halftoneFloor;
       const data = await fetchLightDirection(loadedImageEl, size, shadowThresh);
       lightDirectionCacheRef.current = { src, data };
       const scaled = scaleLightDirectionToImageSpace(
         data,
         size,
-        project.imageWidth || loadedImageEl.naturalWidth,
-        project.imageHeight || loadedImageEl.naturalHeight,
+        imageState.imageWidth || loadedImageEl.naturalWidth,
+        imageState.imageHeight || loadedImageEl.naturalHeight,
       );
-      setProject((prev) => ({
+      setMethodsState((prev) => ({
         ...prev,
-        methods: {
-          ...prev.methods,
-          asaro: applyEstimatedLightDirection(prev.methods.asaro, scaled),
-        },
+        asaro: applyEstimatedLightDirection(prev.asaro, scaled),
       }));
     } catch {
-      const w = project.imageWidth || loadedImageEl.naturalWidth || 800;
-      const h = project.imageHeight || loadedImageEl.naturalHeight || 1000;
+      const w = imageState.imageWidth || loadedImageEl.naturalWidth || 800;
+      const h = imageState.imageHeight || loadedImageEl.naturalHeight || 1000;
       const fallback = estimateLightDirectionFromCentroids(
         w,
         h,
         { x: w * 0.6, y: h * 0.6 },
         { x: w * 0.4, y: h * 0.35 },
       );
-      setProject((prev) => ({
+      setMethodsState((prev) => ({
         ...prev,
-        methods: {
-          ...prev.methods,
-          asaro: applyEstimatedLightDirection(prev.methods.asaro, fallback),
-        },
+        asaro: applyEstimatedLightDirection(prev.asaro, fallback),
       }));
     } finally {
       setIsEstimatingLight(false);
     }
-  }, [project.imageSrc, project.imageWidth, project.imageHeight, project.valueFamilyFloors, loadedImageEl]);
+  }, [
+    imageState.imageSrc,
+    imageState.imageWidth,
+    imageState.imageHeight,
+    valuesState.valueFamilyFloors?.halftoneFloor,
+    loadedImageEl,
+  ]);
 
   useEffect(() => {
-    if (!project.imageSrc || !loadedImageEl || loadedImageEl.src !== project.imageSrc) return;
-    if (project.histogram.status !== 'ready') return;
+    if (!imageState.imageSrc || !loadedImageEl || loadedImageEl.src !== imageState.imageSrc) return;
+    if (imageState.histogram.status !== 'ready') return;
 
     const cached = lightDirectionCacheRef.current;
-    if (cached && cached.src === project.imageSrc) {
+    if (cached && cached.src === imageState.imageSrc) {
       const size = capRenderSize(loadedImageEl.naturalWidth, loadedImageEl.naturalHeight);
       const scaled = scaleLightDirectionToImageSpace(
         cached.data,
         size,
-        project.imageWidth || loadedImageEl.naturalWidth,
-        project.imageHeight || loadedImageEl.naturalHeight,
+        imageState.imageWidth || loadedImageEl.naturalWidth,
+        imageState.imageHeight || loadedImageEl.naturalHeight,
       );
-      setProject((prev) => ({
+      setMethodsState((prev) => ({
         ...prev,
-        methods: {
-          ...prev.methods,
-          asaro: applyEstimatedLightDirection(prev.methods.asaro, scaled),
-        },
+        asaro: applyEstimatedLightDirection(prev.asaro, scaled),
       }));
       return;
     }
 
     handleEstimateLightDirection();
   }, [
-    project.imageSrc,
-    project.imageWidth,
-    project.imageHeight,
+    imageState.imageSrc,
+    imageState.imageWidth,
+    imageState.imageHeight,
     loadedImageEl,
-    project.histogram.status,
+    imageState.histogram.status,
     handleEstimateLightDirection,
   ]);
 
@@ -266,14 +305,17 @@ export default function StudioHomePage() {
 
       const parsedEdgeQuality = savedEdgeQuality ? deserializeEdgeQuality(savedEdgeQuality) : null;
 
-      if (savedCalib || savedGrid || savedPaperMapping || parsedEdgeQuality) {
-        setProject((prev) => ({
-          ...prev,
-          calibration: savedCalib ? JSON.parse(savedCalib) : prev.calibration,
-          grid: savedGrid ? { ...prev.grid, ...JSON.parse(savedGrid) } : prev.grid,
-          paperMapping: savedPaperMapping ? JSON.parse(savedPaperMapping) : prev.paperMapping,
-          edgeQuality: parsedEdgeQuality || prev.edgeQuality,
-        }));
+      if (savedCalib) {
+        setImageState((prev) => ({ ...prev, calibration: JSON.parse(savedCalib) }));
+      }
+      if (savedPaperMapping) {
+        setImageState((prev) => ({ ...prev, paperMapping: JSON.parse(savedPaperMapping) }));
+      }
+      if (savedGrid) {
+        setGridState((prev) => ({ ...prev, ...JSON.parse(savedGrid) }));
+      }
+      if (parsedEdgeQuality) {
+        setViewState((prev) => ({ ...prev, edgeQuality: parsedEdgeQuality }));
       }
     } catch (e) {
       console.warn('Failed to load saved studio preferences from localStorage', e);
@@ -282,45 +324,45 @@ export default function StudioHomePage() {
 
   // Persist edge quality marks to localStorage when updated (#47)
   useEffect(() => {
-    if (!project.edgeQuality) return;
+    if (!viewState.edgeQuality) return;
     try {
-      localStorage.setItem(EDGE_QUALITY_STORAGE_KEY, serializeEdgeQuality(project.edgeQuality));
+      localStorage.setItem(EDGE_QUALITY_STORAGE_KEY, serializeEdgeQuality(viewState.edgeQuality));
     } catch (e) {
       console.warn('Failed to persist edge quality to localStorage', e);
     }
-  }, [project.edgeQuality]);
+  }, [viewState.edgeQuality]);
 
   // Persist calibration when updated
-  const handleSaveCalibration = (calib: typeof INITIAL_PROJECT_STATE.calibration) => {
+  const handleSaveCalibration = (calib: typeof INITIAL_IMAGE_STATE.calibration) => {
     try {
       localStorage.setItem('sketchstudio_calibration_v1', JSON.stringify(calib));
     } catch (e) {
       console.warn('Failed to persist calibration', e);
     }
-    setProject((prev) => ({ ...prev, calibration: calib }));
+    setImageState((prev) => ({ ...prev, calibration: calib }));
   };
 
   // Persist grid preferences when updated
-  const handleUpdateGrid = (updates: Partial<typeof INITIAL_PROJECT_STATE.grid>) => {
-    setProject((prev) => {
-      const newGrid = { ...prev.grid, ...updates };
+  const handleUpdateGrid = (updates: Partial<typeof INITIAL_GRID_STATE>) => {
+    setGridState((prev) => {
+      const newGrid = { ...prev, ...updates };
       try {
         localStorage.setItem('sketchstudio_grid_v1', JSON.stringify(newGrid));
       } catch (e) {
         console.warn('Failed to persist grid', e);
       }
-      return { ...prev, grid: newGrid };
+      return newGrid;
     });
   };
 
   // Persist Paper Mapping when declared
-  const handleSavePaperMapping = (mapping: typeof INITIAL_PROJECT_STATE.paperMapping) => {
+  const handleSavePaperMapping = (mapping: typeof INITIAL_IMAGE_STATE.paperMapping) => {
     try {
       localStorage.setItem('sketchstudio_paper_mapping_v1', JSON.stringify(mapping));
     } catch (e) {
       console.warn('Failed to persist Paper Mapping', e);
     }
-    setProject((prev) => ({ ...prev, paperMapping: mapping }));
+    setImageState((prev) => ({ ...prev, paperMapping: mapping }));
   };
 
   // Restore study log from localStorage on mount
@@ -356,7 +398,7 @@ export default function StudioHomePage() {
     if (gestureState.status === 'completed' && !gestureState.completedEntryId) {
       const { entry, log } = appendStudyLogEntry({
         durationSeconds: gestureState.targetDuration,
-        referenceTitle: gestureState.referenceTitle || project.title || 'Untitled Reference',
+        referenceTitle: gestureState.referenceTitle || imageState.title || 'Untitled Reference',
       });
       setStudyLog(log);
       setGestureState((prev) => ({
@@ -369,12 +411,12 @@ export default function StudioHomePage() {
     gestureState.completedEntryId,
     gestureState.targetDuration,
     gestureState.referenceTitle,
-    project.title,
+    imageState.title,
   ]);
 
   const handleStartGestureSession = (durationSeconds: number) => {
     setGestureState((prev) =>
-      startGestureSession(prev, durationSeconds, project.title || 'Untitled Reference')
+      startGestureSession(prev, durationSeconds, imageState.title || 'Untitled Reference')
     );
   };
 
@@ -421,10 +463,13 @@ export default function StudioHomePage() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const src = ev.target?.result as string;
-      setProject((prev) => ({
+      setImageState((prev) => ({
         ...prev,
         imageSrc: src,
         title: file.name.replace(/\.[^/.]+$/, ''),
+      }));
+      setViewState((prev) => ({
+        ...prev,
         appliedPreset: null,
         edgeQuality: createInitialEdgeQualityState(),
       }));
@@ -447,10 +492,13 @@ export default function StudioHomePage() {
     setSampleLoadError(null);
     try {
       const dataUrl = await loadSamplePortraitAsDataUrl(url, title);
-      setProject((prev) => ({
+      setImageState((prev) => ({
         ...prev,
         imageSrc: dataUrl,
         title: title,
+      }));
+      setViewState((prev) => ({
+        ...prev,
         appliedPreset: null,
         edgeQuality: createInitialEdgeQualityState(),
       }));
@@ -475,7 +523,7 @@ export default function StudioHomePage() {
   };
 
   const handleSelectWorkflowPreset = (presetId: WorkflowPresetId) => {
-    if (!project.isSandbox) {
+    if (!viewState.isSandbox) {
       try {
         const seenNotice = sessionStorage.getItem('sketchstudio_sandbox_preset_toast_seen');
         if (!seenNotice) {
@@ -488,64 +536,187 @@ export default function StudioHomePage() {
         // Ignore storage errors
       }
     }
-    setProject((prev) => applyWorkflowPreset(prev, presetId));
+
+    const applied = applyWorkflowPreset(project, presetId);
+    if (applied.view) {
+      setViewState(applied.view);
+    } else {
+      setViewState((prev) => ({
+        ...prev,
+        isSandbox: true,
+        appliedPreset: presetId,
+        viewMode: applied.viewMode,
+        isolation: applied.isolation,
+      }));
+    }
+
+    if (applied.values) {
+      setValuesState(applied.values);
+    } else {
+      setValuesState((prev) => ({
+        ...prev,
+        medium: applied.medium,
+        layerMeta: applied.layerMeta,
+      }));
+    }
+
+    setMethodsState(applied.methods);
+    setGridState(applied.grid);
     setIsPresetPickerOpen(false);
   };
 
   const handleStageChange = (newStage: AtelierStage) => {
-    setProject((prev) => {
-      if (prev.isSandbox) {
-        return { ...prev, stage: newStage };
-      }
+    if (viewState.isSandbox) {
+      setViewState((prev) => ({ ...prev, stage: newStage }));
+      return;
+    }
 
-      let nextViewMode = prev.viewMode;
-      let nextActiveMethod = prev.methods.activeMethod;
-      let nextGridEnabled = prev.grid.enabled;
+    let nextViewMode = viewState.viewMode;
+    let nextActiveMethod = methodsState.activeMethod;
+    let nextGridEnabled = gridState.enabled;
 
-      if (newStage === 1) {
-        nextViewMode = 'original';
-        nextActiveMethod = 'bargue';
-        nextGridEnabled = true;
-      } else if (newStage === 2) {
-        nextViewMode = 'original';
-        nextActiveMethod = 'loomis';
-        nextGridEnabled = true;
-      } else if (newStage === 3) {
-        nextViewMode = 'valueStudy';
-        nextActiveMethod = 'none';
-        nextGridEnabled = true;
-      } else if (newStage === 4) {
-        nextViewMode = 'tonalMask';
-        nextActiveMethod = 'asaro';
-        nextGridEnabled = false;
-      } else if (newStage === 5) {
-        nextViewMode = 'valueStudy';
-        nextActiveMethod = 'none';
-        nextGridEnabled = false;
-      }
+    if (newStage === 1) {
+      nextViewMode = 'original';
+      nextActiveMethod = 'bargue';
+      nextGridEnabled = true;
+    } else if (newStage === 2) {
+      nextViewMode = 'original';
+      nextActiveMethod = 'loomis';
+      nextGridEnabled = true;
+    } else if (newStage === 3) {
+      nextViewMode = 'valueStudy';
+      nextActiveMethod = 'none';
+      nextGridEnabled = true;
+    } else if (newStage === 4) {
+      nextViewMode = 'tonalMask';
+      nextActiveMethod = 'asaro';
+      nextGridEnabled = false;
+    } else if (newStage === 5) {
+      nextViewMode = 'valueStudy';
+      nextActiveMethod = 'none';
+      nextGridEnabled = false;
+    }
 
-      return {
-        ...prev,
-        stage: newStage,
-        viewMode: nextViewMode,
-        grid: { ...prev.grid, enabled: nextGridEnabled },
-        methods: { ...prev.methods, activeMethod: nextActiveMethod },
-      };
-    });
+    setViewState((prev) => ({
+      ...prev,
+      stage: newStage,
+      viewMode: nextViewMode,
+    }));
+    setGridState((prev) => ({
+      ...prev,
+      enabled: nextGridEnabled,
+    }));
+    setMethodsState((prev) => ({
+      ...prev,
+      activeMethod: nextActiveMethod,
+    }));
   };
 
-  const activeSidebarSection = project.isSandbox ? sandboxSection : SIDEBAR_SECTION_BY_STAGE[project.stage];
+  // Central project updater adapter ensuring backward compatibility for legacy callbacks
+  const handleUpdateProject = useCallback(
+    (updater: (prev: ProjectState) => ProjectState) => {
+      const current = assembleProjectState(imageState, valuesState, methodsState, gridState, viewState);
+      const next = updater(current);
+
+      if (next.image && next.image !== imageState) {
+        setImageState(next.image);
+      } else if (
+        next.imageSrc !== imageState.imageSrc ||
+        next.title !== imageState.title ||
+        next.imageWidth !== imageState.imageWidth ||
+        next.imageHeight !== imageState.imageHeight ||
+        next.calibration !== imageState.calibration ||
+        next.paperMapping !== imageState.paperMapping ||
+        next.histogram !== imageState.histogram ||
+        next.landmarks !== imageState.landmarks
+      ) {
+        setImageState((prev) => ({
+          ...prev,
+          id: next.id ?? prev.id,
+          title: next.title ?? prev.title,
+          imageSrc: next.imageSrc !== undefined ? next.imageSrc : prev.imageSrc,
+          imageWidth: next.imageWidth ?? prev.imageWidth,
+          imageHeight: next.imageHeight ?? prev.imageHeight,
+          calibration: next.calibration ?? prev.calibration,
+          paperMapping: next.paperMapping ?? prev.paperMapping,
+          histogram: next.histogram ?? prev.histogram,
+          landmarks: next.landmarks ?? prev.landmarks,
+        }));
+      }
+
+      if (next.values && next.values !== valuesState) {
+        setValuesState(next.values);
+      } else if (
+        next.cutPoints !== valuesState.cutPoints ||
+        next.numValueLayers !== valuesState.numValueLayers ||
+        next.medium !== valuesState.medium ||
+        next.layerMeta !== valuesState.layerMeta ||
+        next.valueFamilyFloors !== valuesState.valueFamilyFloors ||
+        next.cutPointSource !== valuesState.cutPointSource
+      ) {
+        setValuesState((prev) => ({
+          ...prev,
+          medium: next.medium ?? prev.medium,
+          numValueLayers: next.numValueLayers ?? prev.numValueLayers,
+          layerMeta: next.layerMeta ?? prev.layerMeta,
+          cutPoints: next.cutPoints ?? prev.cutPoints,
+          cutPointSource: next.cutPointSource ?? prev.cutPointSource,
+          valueFamilyFloors: next.valueFamilyFloors ?? prev.valueFamilyFloors,
+        }));
+      }
+
+      if (next.methods && next.methods !== methodsState) {
+        setMethodsState(next.methods);
+      }
+
+      if (next.grid && next.grid !== gridState) {
+        setGridState(next.grid);
+      }
+
+      if (next.view && next.view !== viewState) {
+        setViewState(next.view);
+      } else if (
+        next.stage !== viewState.stage ||
+        next.isSandbox !== viewState.isSandbox ||
+        next.viewMode !== viewState.viewMode ||
+        next.splitPosition !== viewState.splitPosition ||
+        next.blurRadius !== viewState.blurRadius ||
+        next.isFlippedHorizontal !== viewState.isFlippedHorizontal ||
+        next.isolation !== viewState.isolation ||
+        next.ghostOpacity !== viewState.ghostOpacity ||
+        next.appliedPreset !== viewState.appliedPreset ||
+        next.edgeQuality !== viewState.edgeQuality
+      ) {
+        setViewState((prev) => ({
+          ...prev,
+          stage: next.stage ?? prev.stage,
+          isSandbox: next.isSandbox ?? prev.isSandbox,
+          viewMode: next.viewMode ?? prev.viewMode,
+          splitPosition: next.splitPosition ?? prev.splitPosition,
+          blurRadius: next.blurRadius ?? prev.blurRadius,
+          isFlippedHorizontal: next.isFlippedHorizontal ?? prev.isFlippedHorizontal,
+          isolation: next.isolation ?? prev.isolation,
+          ghostOpacity: next.ghostOpacity ?? prev.ghostOpacity,
+          appliedPreset: next.appliedPreset !== undefined ? next.appliedPreset : prev.appliedPreset,
+          edgeQuality: next.edgeQuality !== undefined ? next.edgeQuality : prev.edgeQuality,
+        }));
+      }
+    },
+    [imageState, valuesState, methodsState, gridState, viewState]
+  );
+
+  const activeSidebarSection = viewState.isSandbox ? sandboxSection : SIDEBAR_SECTION_BY_STAGE[viewState.stage];
 
   return (
     <main className="flex flex-col h-screen w-screen bg-studio-950 text-slate-100 overflow-hidden font-sans select-none">
       <TopStrip
         project={project}
         onSelectStage={handleStageChange}
-        onToggleSandbox={() => setProject((prev) => ({ ...prev, isSandbox: !prev.isSandbox }))}
+        onToggleSandbox={() => setViewState((prev) => ({ ...prev, isSandbox: !prev.isSandbox }))}
         onLoadImageFile={handleLoadImageFile}
         onOpenCaliper={() => setIsCaliperOpen(true)}
         onOpenTeaching={() => {
-          setTeachingMethod(project.methods.activeMethod === 'none' ? 'loomis' : project.methods.activeMethod);
+          setTeachingMethod(methodsState.activeMethod === 'none' ? 'loomis' : methodsState.activeMethod);
           setIsTeachingOpen(true);
         }}
         onOpenExport={() => setIsExportOpen(true)}
@@ -559,7 +730,7 @@ export default function StudioHomePage() {
         {/* Center Drawing Canvas Viewport */}
         <StudioCanvas
           project={project}
-          onUpdateProject={(updater) => setProject(updater)}
+          onUpdateProject={handleUpdateProject}
           onLoadImageFile={handleLoadImageFile}
           onLoadSampleImage={handleLoadSamplePortrait}
           sampleLoadError={sampleLoadError}
@@ -578,9 +749,9 @@ export default function StudioHomePage() {
 
         {/* Progressive workspace: the sidebar stays hidden until a Reference
             Image is loaded, and its content then follows the active stage (#39). */}
-        {project.imageSrc && (
+        {imageState.imageSrc && (
           <aside className="w-80 lg:w-96 bg-studio-950 border-l border-studio-800 flex flex-col z-30">
-            {project.isSandbox && (
+            {viewState.isSandbox && (
               <div className="flex items-center gap-1 border-b border-studio-800 bg-studio-900 p-1.5">
                 {([
                   { section: 'grid', label: 'Grid' },
@@ -605,8 +776,8 @@ export default function StudioHomePage() {
             <div className="flex-1 overflow-y-auto">
               {activeSidebarSection === 'grid' && (
                 <GridConfigPanel
-                  grid={project.grid}
-                  paperMapping={project.paperMapping}
+                  grid={gridState}
+                  paperMapping={imageState.paperMapping}
                   onChange={handleUpdateGrid}
                   onOpenPaperMapping={() => setIsPaperMappingOpen(true)}
                 />
@@ -614,10 +785,10 @@ export default function StudioHomePage() {
 
               {activeSidebarSection === 'methods' && (
                 <MethodSelectorPanel
-                  methods={project.methods}
-                  landmarks={project.landmarks}
+                  methods={methodsState}
+                  landmarks={imageState.landmarks}
                   onChange={(updates) =>
-                    setProject((prev) => ({ ...prev, methods: { ...prev.methods, ...updates } }))
+                    setMethodsState((prev) => ({ ...prev, ...updates }))
                   }
                   onOpenTeachingMode={(type) => {
                     setTeachingMethod(type);
@@ -626,15 +797,15 @@ export default function StudioHomePage() {
                   onRetryLandmarks={() => setLandmarksRetryTick((t) => t + 1)}
                   onEstimateLightDirection={handleEstimateLightDirection}
                   isEstimatingLight={isEstimatingLight}
-                  imageWidth={project.imageWidth}
-                  imageHeight={project.imageHeight}
+                  imageWidth={imageState.imageWidth}
+                  imageHeight={imageState.imageHeight}
                 />
               )}
 
               {activeSidebarSection === 'values' && (
                 <ValueStudyPanel
                   project={project}
-                  onUpdateProject={(updater) => setProject(updater)}
+                  onUpdateProject={handleUpdateProject}
                   onRetryHistogram={() => setHistogramRetryTick((t) => t + 1)}
                   onOpenPresetPicker={() => setIsPresetPickerOpen(true)}
                 />
@@ -642,9 +813,9 @@ export default function StudioHomePage() {
             </div>
 
             <MediumFooterSelector
-              currentMedium={project.medium}
+              currentMedium={valuesState.medium}
               onChangeMedium={(medium) =>
-                setProject((prev) => {
+                setValuesState((prev) => {
                   if (prev.medium === medium) return prev;
                   return {
                     ...prev,
@@ -661,14 +832,14 @@ export default function StudioHomePage() {
       {/* Interactive Modals & Drawers */}
       <PhysicalCaliperModal
         isOpen={isCaliperOpen}
-        calibration={project.calibration}
+        calibration={imageState.calibration}
         onClose={() => setIsCaliperOpen(false)}
         onSaveCalibration={handleSaveCalibration}
       />
 
       <PaperMappingModal
         isOpen={isPaperMappingOpen}
-        paperMapping={project.paperMapping}
+        paperMapping={imageState.paperMapping}
         onClose={() => setIsPaperMappingOpen(false)}
         onSavePaperMapping={handleSavePaperMapping}
       />
@@ -678,9 +849,9 @@ export default function StudioHomePage() {
         initialMethod={teachingMethod}
         onClose={() => setIsTeachingOpen(false)}
         onApplyMethod={(type) => {
-          setProject((prev) => ({
+          setMethodsState((prev) => ({
             ...prev,
-            methods: { ...prev.methods, activeMethod: type },
+            activeMethod: type,
           }));
         }}
       />
@@ -699,16 +870,16 @@ export default function StudioHomePage() {
         onDeleteEntry={handleDeleteStudyLogEntry}
         onUpdateNotes={handleUpdateStudyLogNotes}
         onClearLog={handleClearStudyLog}
-        currentReferenceTitle={project.title}
-        hasReferenceImage={Boolean(project.imageSrc)}
+        currentReferenceTitle={imageState.title}
+        hasReferenceImage={Boolean(imageState.imageSrc)}
       />
 
       <PresetPickerModal
         isOpen={isPresetPickerOpen}
         onClose={() => setIsPresetPickerOpen(false)}
         onSelectPreset={handleSelectWorkflowPreset}
-        histogramStats={project.histogram.status === 'ready' ? project.histogram.data : null}
-        currentPresetId={project.appliedPreset}
+        histogramStats={imageState.histogram.status === 'ready' ? imageState.histogram.data : null}
+        currentPresetId={viewState.appliedPreset}
       />
 
       <FirstRunTourModal

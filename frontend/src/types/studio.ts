@@ -206,33 +206,76 @@ export type WorkflowPresetId =
   | 'classical-cast'
   | 'scene-composition';
 
-export interface ProjectState {
+export interface ImageProjectState {
   id?: string;
   title: string;
   imageSrc: string | null;
   imageWidth: number;
   imageHeight: number;
+  calibration: CalibrationProfile;
+  paperMapping: PaperMappingConfig;
+  histogram: HistogramAnalysisState;
+  landmarks: LandmarkAnalysisState;
+}
+
+export interface ValueStudyState {
   medium: MediumType;
-  stage: AtelierStage;
-  isSandbox: boolean;
   numValueLayers: number; // 3 to 9
   layerMeta: ValueLayerMeta[];
   cutPoints: number[]; // N-1 shared boundaries between layerMeta, brightest-to-darkest (descending)
-  grid: GridConfig;
-  calibration: CalibrationProfile;
-  paperMapping: PaperMappingConfig;
-  methods: DrawingMethodState;
-  edgeQuality?: EdgeQualityState;
+  cutPointSource: CutPointSource;
+  valueFamilyFloors: ValueFamilyFloors;
+}
+
+export interface StudioViewState {
+  stage: AtelierStage;
+  isSandbox: boolean;
   viewMode: 'original' | 'valueStudy' | 'tonalMask' | 'edges' | 'split';
   splitPosition: number; // 0-100 percentage
   blurRadius: number; // in pixels, squint mode blur radius applied to canvas view
   isFlippedHorizontal: boolean; // view-only horizontal mirror to catch symmetry/tilt errors
   isolation: IsolationTarget;
   ghostOpacity: number; // 0-1, visibility of the Reference Image beneath an isolated mask
-  valueFamilyFloors: ValueFamilyFloors;
-  cutPointSource: CutPointSource;
   appliedPreset?: WorkflowPresetId | null;
+  edgeQuality?: EdgeQualityState;
+}
+
+export interface ProjectState {
+  // Concern-scoped sub-states (Issue #36)
+  image: ImageProjectState;
+  values: ValueStudyState;
+  methods: DrawingMethodState;
+  grid: GridConfig;
+  view: StudioViewState;
+
+  // Flattened properties for seamless backward-compatibility:
+  id?: string;
+  title: string;
+  imageSrc: string | null;
+  imageWidth: number;
+  imageHeight: number;
+  calibration: CalibrationProfile;
+  paperMapping: PaperMappingConfig;
   histogram: HistogramAnalysisState;
   landmarks: LandmarkAnalysisState;
+
+  medium: MediumType;
+  numValueLayers: number;
+  layerMeta: ValueLayerMeta[];
+  cutPoints: number[];
+  cutPointSource: CutPointSource;
+  valueFamilyFloors: ValueFamilyFloors;
+
+  stage: AtelierStage;
+  isSandbox: boolean;
+  viewMode: 'original' | 'valueStudy' | 'tonalMask' | 'edges' | 'split';
+  splitPosition: number;
+  blurRadius: number;
+  isFlippedHorizontal: boolean;
+  isolation: IsolationTarget;
+  ghostOpacity: number;
+  appliedPreset?: WorkflowPresetId | null;
+  edgeQuality?: EdgeQualityState;
 }
+
 

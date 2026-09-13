@@ -103,27 +103,52 @@ export function applyWorkflowPreset(prev: ProjectState, presetId: WorkflowPreset
   if (!preset) return prev;
 
   const nextMedium = preset.medium;
+  const numLayers = prev.values?.numValueLayers ?? prev.numValueLayers;
+  const currentMedium = prev.values?.medium ?? prev.medium;
+  const currentLayerMeta = prev.values?.layerMeta ?? prev.layerMeta;
+
   const layerMeta =
-    prev.medium !== nextMedium
-      ? generateDefaultLayerMeta(prev.numValueLayers, nextMedium)
-      : prev.layerMeta;
+    currentMedium !== nextMedium
+      ? generateDefaultLayerMeta(numLayers, nextMedium)
+      : currentLayerMeta;
+
+  const nextView = {
+    ...(prev.view ?? prev),
+    isSandbox: true,
+    appliedPreset: presetId,
+    viewMode: preset.viewMode,
+    isolation: preset.isolation || { kind: 'none' as const },
+  };
+
+  const nextValues = {
+    ...(prev.values ?? prev),
+    medium: nextMedium,
+    layerMeta,
+  };
+
+  const nextMethods = {
+    ...prev.methods,
+    activeMethod: preset.activeMethod,
+  };
+
+  const nextGrid = {
+    ...prev.grid,
+    enabled: preset.grid.enabled,
+    ...(preset.grid.type ? { type: preset.grid.type } : {}),
+  };
 
   return {
     ...prev,
+    ...(prev.image ? { image: prev.image } : {}),
+    view: nextView,
+    values: nextValues,
+    methods: nextMethods,
+    grid: nextGrid,
     isSandbox: true,
     appliedPreset: presetId,
     viewMode: preset.viewMode,
     medium: nextMedium,
     layerMeta,
-    methods: {
-      ...prev.methods,
-      activeMethod: preset.activeMethod,
-    },
-    grid: {
-      ...prev.grid,
-      enabled: preset.grid.enabled,
-      ...(preset.grid.type ? { type: preset.grid.type } : {}),
-    },
     isolation: preset.isolation || { kind: 'none' },
   };
 }

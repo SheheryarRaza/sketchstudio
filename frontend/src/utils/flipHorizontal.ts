@@ -6,9 +6,20 @@ import type { ProjectState } from '../types/studio';
  * and configuration intact in native (unflipped) coordinate space.
  */
 export function toggleFlipHorizontal(state: ProjectState): ProjectState {
+  const isFlipped = state.view ? !state.view.isFlippedHorizontal : !state.isFlippedHorizontal;
+  if (state.view) {
+    return {
+      ...state,
+      view: {
+        ...state.view,
+        isFlippedHorizontal: isFlipped,
+      },
+      isFlippedHorizontal: isFlipped,
+    };
+  }
   return {
     ...state,
-    isFlippedHorizontal: !state.isFlippedHorizontal,
+    isFlippedHorizontal: isFlipped,
   };
 }
 

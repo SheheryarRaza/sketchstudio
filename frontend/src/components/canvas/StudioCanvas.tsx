@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { ProjectState } from '../../types/studio';
 import { renderValueStudyOnCanvas } from '../../utils/canvasShaders';
+import { TonalShaderDispatcher } from '../../utils/tonalShaderDispatcher';
 import { buildValueLayers } from '../../utils/cutPoints';
 import { capRenderSize } from '../../utils/renderScale';
 import { fetchEdgeContours } from '../../utils/analysisApi';
@@ -267,17 +268,25 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
     [project.imageWidth, project.imageHeight],
   );
 
+  const dispatcherRef = useRef<TonalShaderDispatcher | null>(null);
+  useEffect(() => {
+    dispatcherRef.current = new TonalShaderDispatcher();
+    return () => {
+      dispatcherRef.current?.dispose();
+      dispatcherRef.current = null;
+    };
+  }, []);
+
   const layers = useMemo(
     () => buildValueLayers(project.layerMeta, project.cutPoints),
     [project.layerMeta, project.cutPoints],
   );
 
-  // Re-render canvas shader (edges view is handled separately below — it's
-  // backend-rendered, not a client-side pixel shader)
+  // Re-render canvas shader via batched TonalShaderDispatcher (Issue #36)
   const renderScene = useCallback(() => {
     const canvas = canvasRef.current;
     const img = loadedImage;
-    const { viewMode } = project;
+    const viewMode = project.viewMode;
     if (!canvas || !img || viewMode === 'edges') return;
 
     if (canvas.width !== renderSize.width || canvas.height !== renderSize.height) {
@@ -285,21 +294,14 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
       canvas.height = renderSize.height;
     }
 
-    const splitRatio = viewMode === 'split' ? project.splitPosition / 100 : undefined;
-    try {
-      setCanvasRenderError(null);
-      renderValueStudyOnCanvas(
-        img,
-        canvas,
-        layers,
-        viewMode === 'split' ? 'valueStudy' : viewMode,
-        splitRatio,
-        project.isolation,
-        project.ghostOpacity,
-        project.valueFamilyFloors,
-        project.blurRadius
-      );
-    } catch (err) {
+    const splitPos = project.splitPosition;
+    const splitRatio = viewMode === 'split' ? splitPos / 100 : undefined;
+    const isolation = project.isolation;
+    const ghostOpacity = project.ghostOpacity;
+    const familyFloors = project.valueFamilyFloors;
+    const blurRadius = project.blurRadius;
+
+    const handleCanvasError = (err: unknown) => {
       const rawMsg = err instanceof Error ? err.message : 'Failed to render canvas image';
       const isSecurityOrTaint =
         (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'SecurityError') ||
@@ -310,8 +312,37 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
         ? 'Canvas pixels cannot be read due to cross-origin security restrictions. Try uploading the image directly from your device.'
         : rawMsg;
       setCanvasRenderError(formatted);
+    };
+
+    if (dispatcherRef.current) {
+      dispatcherRef.current.dispatch({
+        sourceImage: img,
+        targetCanvas: canvas,
+        layers,
+        viewMode: viewMode === 'split' ? 'valueStudy' : viewMode,
+        splitRatio,
+        isolation,
+        ghostOpacity,
+        familyFloors,
+        blurRadius,
+        onComplete: () => {
+          setCanvasRenderError(null);
+        },
+        onError: handleCanvasError,
+      });
     }
-  }, [loadedImage, renderSize, layers, project.viewMode, project.splitPosition, project.isolation, project.ghostOpacity, project.valueFamilyFloors, project.blurRadius]);
+  }, [
+    loadedImage,
+    renderSize,
+    layers,
+    project.viewMode,
+    project.splitPosition,
+    project.isolation,
+    project.ghostOpacity,
+    project.valueFamilyFloors,
+    project.blurRadius,
+    setCanvasRenderError,
+  ]);
 
   useEffect(() => {
     renderScene();
