@@ -40,7 +40,7 @@ test('handleAnalysisResponseError maps other HTTP statuses to default formatted 
   );
 });
 
-test('fetchLandmarks rejects with actionable message when backend returns 413', async () => {
+async function withMock413Environment(fn: () => Promise<void>) {
   const originalFetch = globalThis.fetch;
   const originalDocument = (globalThis as unknown as { document: unknown }).document;
 
@@ -70,6 +70,15 @@ test('fetchLandmarks rejects with actionable message when backend returns 413', 
       });
     }) as unknown as typeof fetch;
 
+    await fn();
+  } finally {
+    globalThis.fetch = originalFetch;
+    (globalThis as unknown as { document: unknown }).document = originalDocument;
+  }
+}
+
+test('fetchLandmarks rejects with actionable message when backend returns 413', async () => {
+  await withMock413Environment(async () => {
     const fakeImg = {} as HTMLImageElement;
     const renderSize = { width: 100, height: 100, scale: 1 };
 
@@ -80,42 +89,11 @@ test('fetchLandmarks rejects with actionable message when backend returns 413', 
         return true;
       }
     );
-  } finally {
-    globalThis.fetch = originalFetch;
-    (globalThis as unknown as { document: unknown }).document = originalDocument;
-  }
+  });
 });
 
 test('fetchLightDirection rejects with actionable message when backend returns 413', async () => {
-  const originalFetch = globalThis.fetch;
-  const originalDocument = (globalThis as unknown as { document: unknown }).document;
-
-  try {
-    const mockCanvas = {
-      width: 100,
-      height: 100,
-      getContext: () => ({
-        drawImage: () => {},
-      }),
-      toBlob: (cb: (b: Blob | null) => void) => {
-        cb(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
-      },
-    };
-
-    (globalThis as unknown as { document: unknown }).document = {
-      createElement: (tag: string) => {
-        if (tag === 'canvas') return mockCanvas;
-        return {};
-      },
-    };
-
-    globalThis.fetch = (async () => {
-      return new Response(JSON.stringify({ detail: 'Uploaded image exceeds maximum allowed size' }), {
-        status: 413,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }) as unknown as typeof fetch;
-
+  await withMock413Environment(async () => {
     const fakeImg = {} as HTMLImageElement;
     const renderSize = { width: 100, height: 100, scale: 1 };
 
@@ -126,8 +104,5 @@ test('fetchLightDirection rejects with actionable message when backend returns 4
         return true;
       }
     );
-  } finally {
-    globalThis.fetch = originalFetch;
-    (globalThis as unknown as { document: unknown }).document = originalDocument;
-  }
+  });
 });

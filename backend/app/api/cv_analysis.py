@@ -8,11 +8,15 @@ router = APIRouter(prefix="/cv", tags=["Computer Vision"])
 
 def _read_and_run(file: UploadFile, cv_func, *args, **kwargs):
     max_bytes = settings.MAX_UPLOAD_SIZE_BYTES
-    if file.size is not None and file.size > max_bytes:
+
+    def raise_payload_too_large():
         raise HTTPException(
             status_code=413,
             detail=f"Uploaded image exceeds maximum allowed size of {max_bytes} bytes",
         )
+
+    if file.size is not None and file.size > max_bytes:
+        raise_payload_too_large()
 
     chunk_size = 64 * 1024
     total_read = 0
@@ -23,10 +27,7 @@ def _read_and_run(file: UploadFile, cv_func, *args, **kwargs):
             break
         total_read += len(chunk)
         if total_read > max_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Uploaded image exceeds maximum allowed size of {max_bytes} bytes",
-            )
+            raise_payload_too_large()
         chunks.append(chunk)
 
     contents = b"".join(chunks)

@@ -90,6 +90,15 @@ def _get_face_landmarker() -> vision.FaceLandmarker:
         return _face_landmarker
 
 
+def _detect_faces_locked(img: np.ndarray, w: int, h: int):
+    """Runs YuNet face detection under _face_analysis_lock so concurrent requests
+    never mutate setInputSize or execute inference simultaneously on shared state."""
+    with _face_analysis_lock:
+        detector = _get_face_detector()
+        detector.setInputSize((w, h))
+        return detector.detect(img)
+
+
 class DetectedFace(NamedTuple):
     """One YuNet detection row: bbox + 5 keypoints + confidence. Eye/mouth labels are
     subject-relative — "right eye" sits at the smaller x on a forward-facing portrait,
@@ -368,16 +377,13 @@ class CVService:
 
         h, w = img.shape[:2]
 
-        with _face_analysis_lock:
-            detector = _get_face_detector()
-            detector.setInputSize((w, h))
-            _, faces = detector.detect(img)
+        _, faces = _detect_faces_locked(img, w, h)
 
-            if faces is not None and len(faces) > 0:
-                best_row = faces[np.argmax(faces[:, 14])]
-                mesh_anchors = CVService._mesh_contour_anchors(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-                construction = CVService._construction_from_detection(DetectedFace.from_row(best_row), mesh_anchors)
-                return {"source": "detected", **construction}
+        if faces is not None and len(faces) > 0:
+            best_row = faces[np.argmax(faces[:, 14])]
+            mesh_anchors = CVService._mesh_contour_anchors(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            construction = CVService._construction_from_detection(DetectedFace.from_row(best_row), mesh_anchors)
+            return {"source": "detected", **construction}
 
         construction = CVService._proportional_construction(w, h)
         return {"source": "fallback", **construction}
@@ -404,10 +410,7 @@ class CVService:
         fw = w
         fh = h
 
-        with _face_analysis_lock:
-            detector = _get_face_detector()
-            detector.setInputSize((w, h))
-            _, faces = detector.detect(img)
+        _, faces = _detect_faces_locked(img, w, h)
 
         if faces is not None and len(faces) > 0:
             best_face = faces[np.argmax(faces[:, 14])]
