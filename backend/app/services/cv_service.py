@@ -8,6 +8,7 @@ from typing import NamedTuple, Optional
 from PIL import Image
 import io
 import math
+import threading
 
 FACE_DETECTOR_MODEL_PATH = Path(__file__).resolve().parent.parent / "assets" / "face_detection_yunet_2026may.onnx"
 FACE_LANDMARKER_MODEL_PATH = Path(__file__).resolve().parent.parent / "assets" / "face_landmarker.task"
@@ -25,6 +26,7 @@ _BROW_LANDMARKS = (46, 52, 53, 55, 63, 65, 66, 70, 105, 107, 276, 282, 283, 285,
 
 _face_detector = None
 _face_landmarker = None
+_face_analysis_lock = threading.RLock()
 
 
 def _left_right(a: tuple, b: tuple) -> tuple:
@@ -58,32 +60,43 @@ def _direction_label_from_angle(angle_deg: float) -> str:
 def _get_face_detector() -> cv2.FaceDetectorYN:
     """Lazily loads and caches the YuNet face detector (OpenCV 5.0 replacement for CascadeClassifier)."""
     global _face_detector
-    if _face_detector is None:
-        # input_size is required at construction but is always replaced per-request via
-        # setInputSize() below, since it depends on the uploaded image's dimensions.
-        _face_detector = cv2.FaceDetectorYN.create(
-            model=str(FACE_DETECTOR_MODEL_PATH),
-            config="",
-            input_size=(320, 320),
-            score_threshold=0.9,
-            nms_threshold=0.3,
-            top_k=5000,
-        )
-    return _face_detector
+    with _face_analysis_lock:
+        if _face_detector is None:
+            # input_size is required at construction but is always replaced per-request via
+            # setInputSize() below, since it depends on the uploaded image's dimensions.
+            _face_detector = cv2.FaceDetectorYN.create(
+                model=str(FACE_DETECTOR_MODEL_PATH),
+                config="",
+                input_size=(320, 320),
+                score_threshold=0.9,
+                nms_threshold=0.3,
+                top_k=5000,
+            )
+        return _face_detector
 
 
 def _get_face_landmarker() -> vision.FaceLandmarker:
     """Lazily loads and caches the MediaPipe Face Landmarker (CPU, single face, static image)."""
     global _face_landmarker
-    if _face_landmarker is None:
-        _face_landmarker = vision.FaceLandmarker.create_from_options(
-            FaceLandmarkerOptions(
-                base_options=BaseOptions(model_asset_path=str(FACE_LANDMARKER_MODEL_PATH)),
-                running_mode=RunningMode.IMAGE,
-                num_faces=1,
+    with _face_analysis_lock:
+        if _face_landmarker is None:
+            _face_landmarker = vision.FaceLandmarker.create_from_options(
+                FaceLandmarkerOptions(
+                    base_options=BaseOptions(model_asset_path=str(FACE_LANDMARKER_MODEL_PATH)),
+                    running_mode=RunningMode.IMAGE,
+                    num_faces=1,
+                )
             )
-        )
-    return _face_landmarker
+        return _face_landmarker
+
+
+def _detect_faces_locked(img: np.ndarray, w: int, h: int):
+    """Runs YuNet face detection under _face_analysis_lock so concurrent requests
+    never mutate setInputSize or execute inference simultaneously on shared state."""
+    with _face_analysis_lock:
+        detector = _get_face_detector()
+        detector.setInputSize((w, h))
+        return detector.detect(img)
 
 
 class DetectedFace(NamedTuple):
@@ -276,7 +289,8 @@ class CVService:
         the landmarker itself couldn't find a face (caller falls back to bbox geometry)."""
         h, w = image_rgb.shape[:2]
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
-        result = _get_face_landmarker().detect(mp_image)
+        with _face_analysis_lock:
+            result = _get_face_landmarker().detect(mp_image)
         if not result.face_landmarks:
             return None
 
@@ -363,9 +377,7 @@ class CVService:
 
         h, w = img.shape[:2]
 
-        detector = _get_face_detector()
-        detector.setInputSize((w, h))
-        _, faces = detector.detect(img)
+        _, faces = _detect_faces_locked(img, w, h)
 
         if faces is not None and len(faces) > 0:
             best_row = faces[np.argmax(faces[:, 14])]
@@ -398,9 +410,7 @@ class CVService:
         fw = w
         fh = h
 
-        detector = _get_face_detector()
-        detector.setInputSize((w, h))
-        _, faces = detector.detect(img)
+        _, faces = _detect_faces_locked(img, w, h)
 
         if faces is not None and len(faces) > 0:
             best_face = faces[np.argmax(faces[:, 14])]

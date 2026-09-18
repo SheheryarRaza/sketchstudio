@@ -86,6 +86,19 @@ class TestBackendConfig(unittest.TestCase):
             s = Settings()
             self.assertEqual(s.CORS_ORIGINS, ["http://localhost:3000", "http://127.0.0.1:3000"])
 
+    def test_settings_default_max_upload_size(self):
+        """Default Settings has sensible MAX_UPLOAD_SIZE_BYTES (15 MB)."""
+        with patch.dict(os.environ, {}, clear=True):
+            s = Settings()
+            self.assertEqual(s.MAX_UPLOAD_SIZE_BYTES, 15 * 1024 * 1024)
+
+    def test_settings_reads_max_upload_size_from_env(self):
+        """Settings loads MAX_UPLOAD_SIZE_BYTES from environment variable."""
+        env = {"MAX_UPLOAD_SIZE_BYTES": "2097152"}
+        with patch.dict(os.environ, env, clear=True):
+            s = Settings()
+            self.assertEqual(s.MAX_UPLOAD_SIZE_BYTES, 2097152)
+
 
 class TestCORSRestriction(unittest.IsolatedAsyncioTestCase):
     async def test_cors_restriction_takes_effect(self):

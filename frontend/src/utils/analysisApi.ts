@@ -2,6 +2,19 @@ import type { RenderSize } from './renderScale';
 import type { HistogramStats, LandmarkStats, LoomisAnchorPoints, ReillyAnchorPoints } from '../types/studio';
 import type { LightDirectionResult } from '../types/lightDirection';
 
+export const IMAGE_TOO_LARGE_ERROR_MESSAGE = 'Image is too large for analysis. Please resize and retry.';
+
+/**
+ * Throws an actionable error on non-ok HTTP responses, distinguishing
+ * 413 Payload Too Large from generic status codes.
+ */
+export function handleAnalysisResponseError(status: number, defaultMessage: string): never {
+  if (status === 413) {
+    throw new Error(IMAGE_TOO_LARGE_ERROR_MESSAGE);
+  }
+  throw new Error(`${defaultMessage} (${status})`);
+}
+
 /**
  * Re-draws the source image at the given (display-capped) size and encodes it as PNG.
  * Analysis calls post this instead of the original — see ADR-0004.
@@ -46,7 +59,7 @@ export async function fetchEdgeContours(
   }
 
   if (!res.ok) {
-    throw new Error(`Contour extraction failed (${res.status})`);
+    handleAnalysisResponseError(res.status, 'Contour extraction failed');
   }
 
   return res.blob();
@@ -73,7 +86,7 @@ export async function fetchHistogram(
   }
 
   if (!res.ok) {
-    throw new Error(`Histogram analysis failed (${res.status})`);
+    handleAnalysisResponseError(res.status, 'Histogram analysis failed');
   }
 
   return res.json();
@@ -101,7 +114,7 @@ export async function fetchLandmarks(
   }
 
   if (!res.ok) {
-    throw new Error(`Landmark Auto-Snap failed (${res.status})`);
+    handleAnalysisResponseError(res.status, 'Landmark Auto-Snap failed');
   }
 
   return res.json();
@@ -170,7 +183,7 @@ export async function fetchSuggestedEdges(
   }
 
   if (!res.ok) {
-    throw new Error(`Edge suggestion failed (${res.status})`);
+    handleAnalysisResponseError(res.status, 'Edge suggestion failed');
   }
 
   return res.json();
@@ -381,7 +394,7 @@ export async function fetchLightDirection(
   }
 
   if (!res.ok) {
-    throw new Error(`Light direction analysis failed (${res.status})`);
+    handleAnalysisResponseError(res.status, 'Light direction analysis failed');
   }
 
   return res.json() as Promise<LightDirectionResult>;
