@@ -34,6 +34,14 @@ _Avoid_: Solo, mute, focus
 One of the N−1 shared boundary values between N adjacent Tonal Layers in a Value Study. Moving a Cut Point moves both neighboring Tonal Layers' shared edge at once, so overlapping or gapped Tonal Layers are impossible to construct.
 _Avoid_: Threshold slider, band edge, max slider
 
+**Light/Shadow Split**:
+The Cut Point that separates the lit side of the form from the shadow side: the tonal counterpart of the Terminator Line. It is the only Cut Point in a two-value Value Study and is preserved unchanged as the Value Build-Up adds values.
+_Avoid_: Midpoint, threshold, 50% cut
+
+**Value Build-Up**:
+The progression of a Value Study from two values (Lights, Shadows) to three (Halftones carved from the lit side of the Light/Shadow Split) to five (highlights and accents added at the extremes). The shadow side stays one unified shape until accents are added.
+_Avoid_: Re-quantize, layer count change, posterize steps
+
 **Edge Quality Map**:
 The overlay and classification of contour and form boundaries on the Reference Image into distinct physical edge qualities (hard, soft, lost), guiding the artist's pencil pressure, blending, and lost-and-found contours.
 _Avoid_: Outline filter, edge detector, stroke style
@@ -67,6 +75,17 @@ _Avoid_: 1:1 scale, actual size, zoom to fit
 The overlay of evenly spaced cells drawn across the Reference Image at a declared physical size, sized in image space from the Paper Mapping and used to transcribe proportions onto the physical page square by square.
 _Avoid_: Grid overlay, graph paper, squares
 
+**Outline Level**:
+One of three progressive line simplifications of the Reference Image's subject, drawn in order onto paper, each refining the one before:
+- **Envelope**: A few straight lines enclosing the whole subject, establishing overall proportion and tilt.
+- **Big Shapes**: The silhouette plus major internal masses (e.g. hair mass, face, clothing). Never includes shadow shapes, which belong to the Light/Shadow Split.
+- **Detail Contour**: The full contour including features, with texture and noise excluded.
+_Avoid_: Edge filter, line art, tracing, Canny view
+
+**Grid Coordinate**:
+The row letter and column number naming one Transfer Grid cell (e.g. "C4"), shown identically on screen and on paper so a cell can be located in both.
+_Avoid_: Square number, cell index
+
 **Harmonic Armature**:
 The geometric network of diagonals, reciprocals, and grid subdivisions across the canvas used for composition, alignment, and proportional transfer.
 _Avoid_: Diagonal lines, angle guide
@@ -82,11 +101,15 @@ The positioning of a Drawing Method's construction anchors onto the Reference Im
 _Avoid_: Face calibration, anchor calibration, fitting
 
 **Landmark Auto-Snap**:
-The automated assist within Anchor Placement that proposes an initial anchor position from detected facial reference points, falling back to declared proportional construction when no face is found.
+The automated assist within Anchor Placement that proposes initial anchor positions from detected facial reference points. Face-based Drawing Methods (Loomis, Reilly) are always seeded from a detected face; whole-subject Drawing Methods (Bargue, Asaro) are seeded from it only for a Head Study. Otherwise falls back to declared proportional construction or placement by hand.
 _Avoid_: Face detection, auto-align
 
+**Head Study**:
+A Reference Image in which a single face fills enough of the frame that the face is the subject, so face-derived anchors are valid for whole-subject Drawing Methods. A full figure, group, cast, or still life is not a Head Study.
+_Avoid_: Portrait, close-up, headshot
+
 **Declared Source**:
-A visible statement on any measured or estimated value — Landmark Auto-Snap's anchors, a Value Study's Cut Points, and future Drawing Capture alignment — of whether it came from real detection/measurement or a declared fallback construction. Never left ambiguous or silently substituted for one another.
+A visible statement on any measured or estimated value — Landmark Auto-Snap's anchors, a Value Study's Cut Points, and future Drawing Capture alignment — of whether it was detected/measured, estimated from detected points (e.g. a Loomis ball's size, since the skull top is never visible to detection), or a declared fallback construction. Never left ambiguous or silently substituted for one another.
 _Avoid_: Confidence score, source badge, silent fallback
 
 **Teaching Mode**:
@@ -96,6 +119,10 @@ _Avoid_: Tutorial, help menu, tooltip
 **Atelier Workflow**:
 The structured 5-stage drafting progression (Calibration & Envelope -> Construction & Proportion -> Shadow Block-In -> Halftone Modeling -> Deep Accents) guiding the artist from general forms to fine details.
 _Avoid_: Wizard, drawing pipeline, drawing steps
+
+**Step Coach**:
+The plain-language guide that tells a beginner the single next thing to put on paper within the Atelier Workflow (e.g. "fill every shadow shape with one flat tone"), names the suggested pencil, and reveals the relevant shapes on the canvas. The art term is shown as a secondary label, never as the instruction itself. In Sandbox Mode it remains visible but changes the canvas only when the artist asks. A step is complete only when the artist marks it done; the app never infers progress on paper. Distinct from Teaching Mode, which explains a single Drawing Method's construction.
+_Avoid_: Tutorial, wizard, hints, tooltip
 
 **Light Direction Diagnosis**:
 The automated estimation of key light angle and core shadow boundary from the Reference Image's measured luminance histogram and shadow Value Family spatial distribution. Classified under Declared Source as an estimate, never presented as a measured fact.

@@ -1,12 +1,35 @@
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Response, Query, HTTPException
+from app.core.config import settings
 from app.services.cv_service import CVService
 
 router = APIRouter(prefix="/cv", tags=["Computer Vision"])
 
 
 def _read_and_run(file: UploadFile, cv_func, *args, **kwargs):
-    contents = file.file.read()
+    max_bytes = settings.MAX_UPLOAD_SIZE_BYTES
+    if file.size is not None and file.size > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Uploaded image exceeds maximum allowed size of {max_bytes} bytes",
+        )
+
+    chunk_size = 64 * 1024
+    total_read = 0
+    chunks = []
+    while True:
+        chunk = file.file.read(chunk_size)
+        if not chunk:
+            break
+        total_read += len(chunk)
+        if total_read > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Uploaded image exceeds maximum allowed size of {max_bytes} bytes",
+            )
+        chunks.append(chunk)
+
+    contents = b"".join(chunks)
     try:
         return cv_func(contents, *args, **kwargs)
     except ValueError as exc:

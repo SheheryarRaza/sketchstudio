@@ -94,3 +94,23 @@ test('MethodSelectorPanel does not render Asaro lighting controls when another m
   assert.ok(!html.includes('Estimate from Photo'));
   assert.ok(!html.includes('Light Direction &amp; Terminator'));
 });
+
+test('MethodSelectorPanel renders actionable image-too-large error message with inline retry button when 413 occurs', () => {
+  const errorLandmarks: LandmarkAnalysisState = {
+    status: 'error',
+    message: 'Image is too large for analysis. Please resize and retry.',
+  };
+
+  const html = renderToStaticMarkup(
+    <MethodSelectorPanel
+      methods={INITIAL_PROJECT_STATE.methods}
+      landmarks={errorLandmarks}
+      onChange={noop}
+      onOpenTeachingMode={noop}
+      onRetryLandmarks={noop}
+    />
+  );
+
+  assert.ok(html.includes('Image is too large for analysis. Please resize and retry.'));
+  assert.ok(html.includes('Retry'));
+});

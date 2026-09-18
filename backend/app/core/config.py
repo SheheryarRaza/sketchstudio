@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     DEBUG: bool = True
     CORS_ORIGINS: Union[list[str], str] = ["*"]
+    MAX_UPLOAD_SIZE_BYTES: int = 15 * 1024 * 1024
 
     @field_validator("CORS_ORIGINS", mode="after")
     @classmethod

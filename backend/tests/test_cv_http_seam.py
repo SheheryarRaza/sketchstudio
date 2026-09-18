@@ -1,6 +1,8 @@
+import asyncio
 import io
 import json
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from PIL import Image, ImageDraw
 
@@ -174,6 +176,101 @@ class TestCVHttpSeam(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status_land, 422)
         land_data = json.loads(resp_land.decode("utf-8"))
         self.assertIn("detail", land_data)
+
+    async def test_oversized_upload_returns_413_without_decoding(self):
+        """Upload exceeding MAX_UPLOAD_SIZE_BYTES returns 413 Payload Too Large without calling imdecode."""
+        oversized_bytes = b"X" * 2048
+        headers, body = make_multipart_body("oversized.png", oversized_bytes)
+
+        endpoints = [
+            "/api/cv/landmarks",
+            "/api/cv/light-direction",
+            "/api/cv/histogram",
+            "/api/cv/edges",
+            "/api/cv/suggest-edges",
+        ]
+
+        with patch("app.core.config.settings.MAX_UPLOAD_SIZE_BYTES", 1024), \
+             patch("cv2.imdecode") as mock_imdecode:
+            for endpoint in endpoints:
+                mock_imdecode.reset_mock()
+                status, _, resp_body = await asgi_request(
+                    app,
+                    "POST",
+                    endpoint,
+                    headers=headers,
+                    body_content=body,
+                )
+                self.assertEqual(
+                    status,
+                    413,
+                    f"Expected 413 on {endpoint} for oversized upload, got {status}: {resp_body.decode('utf-8', errors='replace')}",
+                )
+                mock_imdecode.assert_not_called()
+                data = json.loads(resp_body.decode("utf-8"))
+                self.assertIn("detail", data)
+                self.assertTrue(
+                    any(phrase in data["detail"].lower() for phrase in ["too large", "exceeds", "maximum"]),
+                    f"Expected informative detail about size limit, got: {data['detail']}",
+                )
+
+    async def test_concurrent_landmark_requests_return_200(self):
+        """8 concurrent landmark requests with differing image dimensions all return 200 without race conditions."""
+        if not PORTRAIT_PATH.exists():
+            self.skipTest("Portrait fixture not found")
+
+        base_img = Image.open(PORTRAIT_PATH)
+        variants = []
+        for i in range(8):
+            w = 280 + i * 20
+            h = 300 + (i % 3) * 30
+            resized = base_img.resize((w, h))
+            buf = io.BytesIO()
+            resized.save(buf, format="JPEG")
+            variants.append(buf.getvalue())
+
+        async def send_req(img_bytes, idx):
+            headers, body = make_multipart_body(f"req_{idx}.jpg", img_bytes, content_type="image/jpeg")
+            return await asgi_request(app, "POST", "/api/cv/landmarks", headers=headers, body_content=body)
+
+        responses = await asyncio.gather(*[send_req(v, i) for i, v in enumerate(variants)])
+
+        self.assertEqual(len(responses), 8)
+        for i, (status, _, resp_bytes) in enumerate(responses):
+            self.assertEqual(status, 200, f"Request {i} failed with status {status}: {resp_bytes.decode('utf-8', errors='replace')}")
+            data = json.loads(resp_bytes.decode("utf-8"))
+            self.assertIn("source", data)
+            self.assertIn("loomis", data)
+            self.assertIn("reilly", data)
+
+    async def test_concurrent_light_direction_requests_return_200(self):
+        """8 concurrent light-direction requests with differing image dimensions all return 200 without race conditions."""
+        if not PORTRAIT_PATH.exists():
+            self.skipTest("Portrait fixture not found")
+
+        base_img = Image.open(PORTRAIT_PATH)
+        variants = []
+        for i in range(8):
+            w = 280 + i * 20
+            h = 300 + (i % 3) * 30
+            resized = base_img.resize((w, h))
+            buf = io.BytesIO()
+            resized.save(buf, format="JPEG")
+            variants.append(buf.getvalue())
+
+        async def send_req(img_bytes, idx):
+            headers, body = make_multipart_body(f"req_{idx}.jpg", img_bytes, content_type="image/jpeg")
+            return await asgi_request(app, "POST", "/api/cv/light-direction", headers=headers, body_content=body)
+
+        responses = await asyncio.gather(*[send_req(v, i) for i, v in enumerate(variants)])
+
+        self.assertEqual(len(responses), 8)
+        for i, (status, _, resp_bytes) in enumerate(responses):
+            self.assertEqual(status, 200, f"Request {i} failed with status {status}: {resp_bytes.decode('utf-8', errors='replace')}")
+            data = json.loads(resp_bytes.decode("utf-8"))
+            self.assertIn("angleDeg", data)
+            self.assertIn("directionLabel", data)
+            self.assertIn("terminatorLine", data)
 
 
 if __name__ == "__main__":
