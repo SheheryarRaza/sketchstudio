@@ -171,3 +171,82 @@ test('computeTonalPixels executes pure pixel shader calculations accurately', as
   assert.equal(output[7], 255, 'Alpha channel should be 255');
 });
 
+test('comparing valueStudy and tonalMask on same continuous gradient image confirms discrete quantization vs continuous tones', async () => {
+  const { computeTonalPixels } = await import('./canvasShaders');
+
+  // Create a continuous ramp image of 10 pixels with luminances 10, 30, 50, 70, 90, 110, 130, 150, 170, 190
+  const width = 10;
+  const height = 1;
+  const input = new Uint8ClampedArray(width * 4);
+  for (let x = 0; x < width; x++) {
+    const val = 10 + x * 20;
+    input[x * 4] = val;
+    input[x * 4 + 1] = val;
+    input[x * 4 + 2] = val;
+    input[x * 4 + 3] = 255;
+  }
+
+  // Render with valueStudy (quantized stepped view)
+  const studyOutput = computeTonalPixels(
+    input,
+    width,
+    height,
+    testLayers,
+    'valueStudy',
+    [],
+    0.18,
+    -1,
+  );
+
+  // Render with tonalMask (continuous-tone view)
+  const maskOutput = computeTonalPixels(
+    input,
+    width,
+    height,
+    testLayers,
+    'tonalMask',
+    [],
+    0.18,
+    -1,
+  );
+
+  // In tonalMask: each pixel must match its continuous input luminance exactly
+  for (let x = 0; x < width; x++) {
+    const expectedLum = 10 + x * 20;
+    assert.equal(maskOutput[x * 4], expectedLum, `tonalMask pixel ${x} must equal continuous luminance`);
+  }
+
+  // In valueStudy: adjacent pixels within the same band are quantized to the exact same midpoint
+  // Check unique values: testLayers has 4 bands, so output must have <= 4 distinct values (discrete steps)
+  const uniqueStudyValues = new Set<number>();
+  for (let x = 0; x < width; x++) {
+    uniqueStudyValues.add(studyOutput[x * 4]);
+  }
+  assert.ok(uniqueStudyValues.size <= testLayers.length, 'valueStudy should produce discrete steps, not continuous gradients');
+  assert.ok(uniqueStudyValues.size < width, 'valueStudy must compress 10 distinct gradient values into fewer discrete steps');
+
+  // Verify split compare on the same image
+  const splitOutput = computeTonalPixels(
+    input,
+    width,
+    height,
+    testLayers,
+    'valueStudy',
+    [],
+    0.18,
+    width / 2, // split down the middle at x = 5
+  );
+
+  // Left of split (x < 5): original values preserved
+  for (let x = 0; x < 5; x++) {
+    const origVal = 10 + x * 20;
+    assert.equal(splitOutput[x * 4], origVal, `Split left pixel ${x} must match original RGB`);
+  }
+
+  // Right of split (x >= 5): valueStudy tonal values rendered
+  for (let x = 5; x < width; x++) {
+    assert.equal(splitOutput[x * 4], studyOutput[x * 4], `Split right pixel ${x} must match valueStudy`);
+  }
+});
+
+

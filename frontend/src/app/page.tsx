@@ -47,6 +47,7 @@ import { StudyLogModal } from '@/components/studio/StudyLogModal';
 import { PresetPickerModal } from '@/components/studio/PresetPickerModal';
 import { FirstRunTourModal, TOUR_STORAGE_KEY } from '@/components/studio/FirstRunTourModal';
 import { applyWorkflowPreset, type WorkflowPresetId } from '@/utils/workflowPresets';
+import { transitionAtelierStage } from '@/utils/atelierWorkflow';
 import { Compass, X } from 'lucide-react';
 import type { GestureSessionState, StudyLogEntry } from '@/types/gesture';
 import {
@@ -566,49 +567,27 @@ export default function StudioHomePage() {
   };
 
   const handleStageChange = (newStage: AtelierStage) => {
-    if (viewState.isSandbox) {
-      setViewState((prev) => ({ ...prev, stage: newStage }));
-      return;
-    }
-
-    let nextViewMode = viewState.viewMode;
-    let nextActiveMethod = methodsState.activeMethod;
-    let nextGridEnabled = gridState.enabled;
-
-    if (newStage === 1) {
-      nextViewMode = 'original';
-      nextActiveMethod = 'bargue';
-      nextGridEnabled = true;
-    } else if (newStage === 2) {
-      nextViewMode = 'original';
-      nextActiveMethod = 'loomis';
-      nextGridEnabled = true;
-    } else if (newStage === 3) {
-      nextViewMode = 'valueStudy';
-      nextActiveMethod = 'none';
-      nextGridEnabled = true;
-    } else if (newStage === 4) {
-      nextViewMode = 'tonalMask';
-      nextActiveMethod = 'asaro';
-      nextGridEnabled = false;
-    } else if (newStage === 5) {
-      nextViewMode = 'valueStudy';
-      nextActiveMethod = 'none';
-      nextGridEnabled = false;
-    }
+    const next = transitionAtelierStage({
+      currentStage: viewState.stage,
+      isSandbox: viewState.isSandbox,
+      currentViewMode: viewState.viewMode,
+      currentActiveMethod: methodsState.activeMethod,
+      currentGridEnabled: gridState.enabled,
+      newStage,
+    });
 
     setViewState((prev) => ({
       ...prev,
-      stage: newStage,
-      viewMode: nextViewMode,
+      stage: next.stage,
+      viewMode: next.viewMode,
     }));
     setGridState((prev) => ({
       ...prev,
-      enabled: nextGridEnabled,
+      enabled: next.gridEnabled,
     }));
     setMethodsState((prev) => ({
       ...prev,
-      activeMethod: nextActiveMethod,
+      activeMethod: next.activeMethod,
     }));
   };
 
