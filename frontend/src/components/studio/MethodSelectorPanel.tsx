@@ -97,13 +97,13 @@ export const MethodSelectorPanel: React.FC<MethodSelectorPanelProps> = ({
               Landmark Auto-Snap scanning for a face…
             </span>
           )}
-          {landmarks.status === 'ready' && landmarks.data.source === 'detected' && (
+          {landmarks.status === 'ready' && (landmarks.data.loomis.center.source === 'detected' || landmarks.data.source === 'detected') && (
             <span className="flex items-center gap-1.5 text-xs text-emerald-400">
               <ScanFace className="w-3.5 h-3.5" />
               Anchors seeded from the detected face
             </span>
           )}
-          {landmarks.status === 'ready' && landmarks.data.source === 'fallback' && (
+          {landmarks.status === 'ready' && (landmarks.data.loomis.center.source !== 'detected' && landmarks.data.source !== 'detected') && (
             <span className="flex items-center gap-1.5 text-xs text-studio-gold">
               <AlertTriangle className="w-3.5 h-3.5" />
               No face detected — anchors are a proportional starting point

@@ -1,10 +1,43 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import type { DrawingMethodState } from '../../types/studio';
+import type { DeclaredSource, DrawingMethodState } from '../../types/studio';
 
 import { mapPointerToNativeX } from '../../utils/flipHorizontal';
 import { calculateTerminatorLine, normalizeAngle } from '../../utils/lightDirection';
+
+export function getAnchorVisualProps(source: DeclaredSource | undefined) {
+  switch (source) {
+    case 'detected':
+      return {
+        fill: '#10b981',
+        stroke: '#064e3b',
+        strokeWidth: 2,
+        strokeDasharray: undefined,
+        className: 'anchor-detected',
+        label: 'detected',
+      };
+    case 'estimated':
+      return {
+        fill: '#f59e0b',
+        stroke: '#78350f',
+        strokeWidth: 2,
+        strokeDasharray: undefined,
+        className: 'anchor-estimated',
+        label: 'estimated',
+      };
+    case 'fallback':
+    default:
+      return {
+        fill: '#f43f5e',
+        stroke: '#881337',
+        strokeWidth: 1.5,
+        strokeDasharray: '2,2',
+        className: 'anchor-fallback',
+        label: 'fallback',
+      };
+  }
+}
 
 interface MethodOverlaysProps {
   width: number;
@@ -46,7 +79,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
     if (activeMethod === 'loomis') {
       const loomis = { ...methodState.loomis };
       if (draggingPoint === 'loomis-center') {
-        loomis.center = { x, y };
+        loomis.center = { ...loomis.center, x, y };
       } else if (draggingPoint === 'loomis-radius') {
         loomis.radius = Math.max(20, Math.hypot(x - loomis.center.x, y - loomis.center.y));
       } else if (draggingPoint === 'loomis-brow') {
@@ -60,7 +93,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
     } else if (activeMethod === 'reilly') {
       const reilly = { ...methodState.reilly };
       if (draggingPoint in reilly) {
-        (reilly as any)[draggingPoint] = { x, y };
+        (reilly as any)[draggingPoint] = { ...(reilly as any)[draggingPoint], x, y };
         onChange({ ...methodState, reilly });
       }
     } else if (activeMethod === 'bargue') {
@@ -148,35 +181,87 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
                L ${methodState.loomis.center.x + methodState.loomis.radius * 0.8} ${methodState.loomis.browLineY}`}
           />
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
-              <circle
-                cx={methodState.loomis.center.x}
-                cy={methodState.loomis.center.y}
-                r={6}
-                className="cursor-move hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-center', e)}
-              />
-              <circle
-                cx={methodState.loomis.center.x + methodState.loomis.radius}
-                cy={methodState.loomis.center.y}
-                r={6}
-                className="cursor-ew-resize hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-radius', e)}
-              />
-              <circle
-                cx={methodState.loomis.center.x}
-                cy={methodState.loomis.browLineY}
-                r={5}
-                className="cursor-ns-resize hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-brow', e)}
-              />
-              <circle
-                cx={methodState.loomis.center.x}
-                cy={methodState.loomis.chinY}
-                r={5}
-                className="cursor-ns-resize hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-chin', e)}
-              />
+            <g className="pointer-events-auto">
+              {(() => {
+                const src = methodState.loomis.center.source || methodState.loomis.sources?.center || 'fallback';
+                const style = getAnchorVisualProps(src);
+                return (
+                  <circle
+                    cx={methodState.loomis.center.x}
+                    cy={methodState.loomis.center.y}
+                    r={6}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-move hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown('loomis-center', e)}
+                  >
+                    <title>{`Loomis Center: ${style.label}`}</title>
+                  </circle>
+                );
+              })()}
+              {(() => {
+                const src = methodState.loomis.radiusSource || methodState.loomis.sources?.radius || 'estimated';
+                const style = getAnchorVisualProps(src);
+                return (
+                  <circle
+                    cx={methodState.loomis.center.x + methodState.loomis.radius}
+                    cy={methodState.loomis.center.y}
+                    r={6}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-ew-resize hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown('loomis-radius', e)}
+                  >
+                    <title>{`Loomis Ball Size: ${style.label}`}</title>
+                  </circle>
+                );
+              })()}
+              {(() => {
+                const src = methodState.loomis.browSource || methodState.loomis.sources?.browLineY || 'detected';
+                const style = getAnchorVisualProps(src);
+                return (
+                  <circle
+                    cx={methodState.loomis.center.x}
+                    cy={methodState.loomis.browLineY}
+                    r={5}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-ns-resize hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown('loomis-brow', e)}
+                  >
+                    <title>{`Loomis Brow Line: ${style.label}`}</title>
+                  </circle>
+                );
+              })()}
+              {(() => {
+                const src = methodState.loomis.chinSource || methodState.loomis.sources?.chinY || 'detected';
+                const style = getAnchorVisualProps(src);
+                return (
+                  <circle
+                    cx={methodState.loomis.center.x}
+                    cy={methodState.loomis.chinY}
+                    r={5}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-ns-resize hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown('loomis-chin', e)}
+                  >
+                    <title>{`Loomis Chin: ${style.label}`}</title>
+                  </circle>
+                );
+              })()}
             </g>
           )}
         </g>
@@ -218,17 +303,27 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
                Q ${methodState.reilly.chinBottom.x + 30} ${methodState.reilly.chinBottom.y + 60} ${methodState.reilly.chinBottom.x + 10} ${methodState.reilly.chinBottom.y + 100}`}
           />
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
-              {Object.entries(methodState.reilly).map(([key, pt]) => (
-                <circle
-                  key={key}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={5}
-                  className="cursor-pointer hover:scale-125 transition-transform"
-                  onPointerDown={(e) => handlePointerDown(key, e)}
-                />
-              ))}
+            <g className="pointer-events-auto">
+              {Object.entries(methodState.reilly).map(([key, pt]) => {
+                const style = getAnchorVisualProps(pt.source);
+                return (
+                  <circle
+                    key={key}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={5}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-pointer hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown(key, e)}
+                  >
+                    <title>{`${key}: ${style.label}`}</title>
+                  </circle>
+                );
+              })}
             </g>
           )}
         </g>

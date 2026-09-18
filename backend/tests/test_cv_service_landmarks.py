@@ -27,42 +27,49 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
     def test_real_photo_detects_and_uses_mesh_contour(self):
         result = CVService.estimate_facial_landmarks(PORTRAIT_PATH.read_bytes())
 
-        self.assertEqual(result["source"], "detected")
-
         loomis, reilly = result["loomis"], result["reilly"]
+        self.assertEqual(loomis["center"]["source"], "detected")
+        self.assertEqual(loomis["radius"]["source"], "estimated")
+        self.assertEqual(loomis["browLineY"]["source"], "detected")
+        self.assertEqual(loomis["chinY"]["source"], "detected")
+        self.assertEqual(loomis["jawWidth"]["source"], "detected")
+
         # Jaw is measured, not the old radius*0.9 proportional guess.
-        self.assertNotEqual(loomis["jawWidth"], int(loomis["radius"] * 0.9))
+        self.assertNotEqual(loomis["jawWidth"]["value"], int(loomis["radius"]["value"] * 0.9))
         # Contour anchors keep image-left/image-right ordering.
         self.assertLess(reilly["leftJaw"]["x"], reilly["rightJaw"]["x"])
         self.assertLess(reilly["leftTemple"]["x"], reilly["rightTemple"]["x"])
         # Brow sits above the eyes, and chin sits below the nose.
-        self.assertLess(loomis["browLineY"], reilly["leftEye"]["y"])
-        self.assertGreater(loomis["chinY"], loomis["noseLineY"])
+        self.assertLess(loomis["browLineY"]["value"], reilly["leftEye"]["y"])
+        self.assertGreater(loomis["chinY"]["value"], loomis["noseLineY"]["value"])
         # Temple sits above jaw, which sits above the chin — real face topology,
         # not three points collapsed onto the same bbox-proportional guess.
         self.assertLess(reilly["leftTemple"]["y"], reilly["leftJaw"]["y"])
-        self.assertLess(reilly["leftJaw"]["y"], loomis["chinY"])
+        self.assertLess(reilly["leftJaw"]["y"], loomis["chinY"]["value"])
         # Contour anchors land within the detected face's bounding region, not
         # off in the background — a wrong mesh index would likely fail this.
-        face_left = loomis["center"]["x"] - loomis["radius"] * 2
-        face_right = loomis["center"]["x"] + loomis["radius"] * 2
+        face_left = loomis["center"]["x"] - loomis["radius"]["value"] * 2
+        face_right = loomis["center"]["x"] + loomis["radius"]["value"] * 2
         for anchor in (reilly["leftJaw"], reilly["rightJaw"], reilly["leftTemple"], reilly["rightTemple"]):
             self.assertTrue(face_left < anchor["x"] < face_right)
-        # Eye/nose/mouth anchors are unchanged: still straight from YuNet.
+            self.assertEqual(anchor["source"], "detected")
+        # Eye/nose/mouth anchors are detected.
         self.assertLess(reilly["leftEye"]["x"], reilly["rightEye"]["x"])
+        self.assertEqual(reilly["leftEye"]["source"], "detected")
 
     def test_yunet_hit_but_mesh_miss_still_reports_detected_with_bbox_geometry(self):
         """If YuNet finds a face but the mesh landmarker doesn't on that same photo,
-        jaw/temple/chin/brow degrade to the pre-upgrade bbox math while `source` stays
+        jaw/temple/chin/brow degrade to the pre-upgrade bbox math while anchors stay
         "detected" — no worse than this service's behavior before this ticket."""
         with patch.object(CVService, "_mesh_contour_anchors", return_value=None) as mocked:
             result = CVService.estimate_facial_landmarks(PORTRAIT_PATH.read_bytes())
 
         mocked.assert_called_once()
-        self.assertEqual(result["source"], "detected")
         loomis = result["loomis"]
-        self.assertEqual(loomis["jawWidth"], int(loomis["radius"] * 0.9))
-        self.assertEqual(loomis["browLineY"], loomis["center"]["y"])
+        self.assertEqual(loomis["center"]["source"], "detected")
+        self.assertEqual(loomis["radius"]["source"], "estimated")
+        self.assertEqual(loomis["jawWidth"]["value"], int(loomis["radius"]["value"] * 0.9))
+        self.assertEqual(loomis["browLineY"]["value"], loomis["center"]["y"])
 
     def test_construction_uses_mesh_anchors_when_available(self):
         mesh_anchors = MeshAnchors(
@@ -76,11 +83,13 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
 
         result = CVService._construction_from_detection(FAKE_FACE, mesh_anchors)
 
-        self.assertEqual(result["loomis"]["jawWidth"], 20)
-        self.assertEqual(result["loomis"]["browLineY"], 15)
-        self.assertEqual(result["loomis"]["chinY"], 40)
-        self.assertEqual(result["reilly"]["leftJaw"], {"x": 10, "y": 20})
-        self.assertEqual(result["reilly"]["chinBottom"], {"x": 20, "y": 40})
+        self.assertEqual(result["loomis"]["jawWidth"]["value"], 20)
+        self.assertEqual(result["loomis"]["jawWidth"]["source"], "detected")
+        self.assertEqual(result["loomis"]["radius"]["source"], "estimated")
+        self.assertEqual(result["loomis"]["browLineY"]["value"], 15)
+        self.assertEqual(result["loomis"]["chinY"]["value"], 40)
+        self.assertEqual(result["reilly"]["leftJaw"], {"x": 10, "y": 20, "source": "detected"})
+        self.assertEqual(result["reilly"]["chinBottom"], {"x": 20, "y": 40, "source": "detected"})
 
     def test_construction_falls_back_to_bbox_geometry_without_mesh(self):
         """If the mesh landmarker can't find a face on an already-YuNet-detected photo,
@@ -92,10 +101,10 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
         center_y = int((FAKE_FACE.right_eye[1] + FAKE_FACE.left_eye[1]) / 2)
         radius = int(FAKE_FACE.w * 0.5)
 
-        self.assertEqual(result["loomis"]["jawWidth"], int(radius * 0.9))
-        self.assertEqual(result["loomis"]["browLineY"], center_y)
-        self.assertEqual(result["loomis"]["chinY"], int(FAKE_FACE.y + FAKE_FACE.h))
-        self.assertEqual(result["reilly"]["chinBottom"], {"x": center_x, "y": int(FAKE_FACE.y + FAKE_FACE.h)})
+        self.assertEqual(result["loomis"]["jawWidth"]["value"], int(radius * 0.9))
+        self.assertEqual(result["loomis"]["browLineY"]["value"], center_y)
+        self.assertEqual(result["loomis"]["chinY"]["value"], int(FAKE_FACE.y + FAKE_FACE.h))
+        self.assertEqual(result["reilly"]["chinBottom"], {"x": center_x, "y": int(FAKE_FACE.y + FAKE_FACE.h), "source": "detected"})
 
 
 class TestFacialLandmarksFallbackPath(unittest.TestCase):
@@ -105,9 +114,12 @@ class TestFacialLandmarksFallbackPath(unittest.TestCase):
 
         result = CVService.estimate_facial_landmarks(img_buf.getvalue())
 
-        self.assertEqual(result["source"], "fallback")
         self.assertIn("loomis", result)
         self.assertIn("reilly", result)
+        for key in ["center", "radius", "browLineY", "noseLineY", "chinY", "jawWidth"]:
+            self.assertEqual(result["loomis"][key]["source"], "fallback")
+        for key, pt in result["reilly"].items():
+            self.assertEqual(pt["source"], "fallback")
 
 
 if __name__ == "__main__":
