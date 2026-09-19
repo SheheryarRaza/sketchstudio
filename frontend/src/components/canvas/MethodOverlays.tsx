@@ -26,6 +26,15 @@ export function getAnchorVisualProps(source: DeclaredSource | undefined) {
         className: 'anchor-estimated',
         label: 'estimated',
       };
+    case 'hand-placed':
+      return {
+        fill: '#38bdf8',
+        stroke: '#0369a1',
+        strokeWidth: 2,
+        strokeDasharray: undefined,
+        className: 'anchor-hand-placed',
+        label: 'hand-placed',
+      };
     case 'fallback':
     default:
       return {
@@ -37,6 +46,84 @@ export function getAnchorVisualProps(source: DeclaredSource | undefined) {
         label: 'fallback',
       };
   }
+}
+
+/**
+ * Updates an anchor's position and transitions its Declared Source to 'hand-placed',
+ * ensuring the overlay stays truthful after manual correction (issue #85).
+ * Non-dragged anchors retain their original Declared Source.
+ */
+export function moveMethodAnchor(
+  methodState: DrawingMethodState,
+  draggingPoint: string,
+  coords: { x: number; y: number }
+): DrawingMethodState {
+  const { activeMethod } = methodState;
+  const { x, y } = coords;
+
+  if (activeMethod === 'loomis') {
+    const loomis = { ...methodState.loomis };
+    const tilt = loomis.tiltAngle || 0;
+    let localY = y;
+    if (tilt !== 0) {
+      const rad = (-tilt * Math.PI) / 180;
+      const dx = x - loomis.center.x;
+      const dy = y - loomis.center.y;
+      localY = loomis.center.y + dx * Math.sin(rad) + dy * Math.cos(rad);
+    }
+
+    const sources = { ...(loomis.sources || {}) };
+
+    if (draggingPoint === 'loomis-center') {
+      loomis.center = { ...loomis.center, x, y, source: 'hand-placed' };
+      sources.center = 'hand-placed';
+    } else if (draggingPoint === 'loomis-radius') {
+      loomis.radius = Math.max(20, Math.hypot(x - loomis.center.x, y - loomis.center.y));
+      sources.radius = 'hand-placed';
+    } else if (draggingPoint === 'loomis-brow') {
+      loomis.browLineY = localY;
+      sources.browLineY = 'hand-placed';
+    } else if (draggingPoint === 'loomis-nose') {
+      loomis.noseLineY = localY;
+      sources.noseLineY = 'hand-placed';
+    } else if (draggingPoint === 'loomis-chin') {
+      loomis.chinY = localY;
+      sources.chinY = 'hand-placed';
+    }
+    loomis.sources = sources;
+    return { ...methodState, loomis };
+  }
+
+  if (activeMethod === 'reilly') {
+    const reilly = { ...methodState.reilly };
+    if (draggingPoint in reilly) {
+      (reilly as any)[draggingPoint] = {
+        ...(reilly as any)[draggingPoint],
+        x,
+        y,
+        source: 'hand-placed',
+      };
+      return { ...methodState, reilly };
+    }
+  }
+
+  if (activeMethod === 'bargue') {
+    const bargue = { ...methodState.bargue };
+    const pointIndex = bargue.points.findIndex((p) => p.id === draggingPoint);
+    if (pointIndex !== -1) {
+      const points = [...bargue.points];
+      points[pointIndex] = {
+        ...points[pointIndex],
+        x,
+        y,
+        source: 'hand-placed',
+      };
+      bargue.points = points;
+      return { ...methodState, bargue };
+    }
+  }
+
+  return methodState;
 }
 
 interface MethodOverlaysProps {
@@ -76,45 +163,8 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
     const x = mapPointerToNativeX(e.clientX, rect, width, isFlippedHorizontal);
     const y = Math.max(0, Math.min(height, ((e.clientY - rect.top) / rect.height) * height));
 
-    if (activeMethod === 'loomis') {
-      const loomis = { ...methodState.loomis };
-      const tilt = loomis.tiltAngle || 0;
-      let localY = y;
-      if (tilt !== 0) {
-        const rad = (-tilt * Math.PI) / 180;
-        const dx = x - loomis.center.x;
-        const dy = y - loomis.center.y;
-        localY = loomis.center.y + dx * Math.sin(rad) + dy * Math.cos(rad);
-      }
-
-      if (draggingPoint === 'loomis-center') {
-        loomis.center = { ...loomis.center, x, y };
-      } else if (draggingPoint === 'loomis-radius') {
-        loomis.radius = Math.max(20, Math.hypot(x - loomis.center.x, y - loomis.center.y));
-      } else if (draggingPoint === 'loomis-brow') {
-        loomis.browLineY = localY;
-      } else if (draggingPoint === 'loomis-nose') {
-        loomis.noseLineY = localY;
-      } else if (draggingPoint === 'loomis-chin') {
-        loomis.chinY = localY;
-      }
-      onChange({ ...methodState, loomis });
-    } else if (activeMethod === 'reilly') {
-      const reilly = { ...methodState.reilly };
-      if (draggingPoint in reilly) {
-        (reilly as any)[draggingPoint] = { ...(reilly as any)[draggingPoint], x, y };
-        onChange({ ...methodState, reilly });
-      }
-    } else if (activeMethod === 'bargue') {
-      const bargue = { ...methodState.bargue };
-      const pointIndex = bargue.points.findIndex(p => p.id === draggingPoint);
-      if (pointIndex !== -1) {
-        const points = [...bargue.points];
-        points[pointIndex] = { ...points[pointIndex], x, y };
-        bargue.points = points;
-        onChange({ ...methodState, bargue });
-      }
-    }
+    const updated = moveMethodAnchor(methodState, draggingPoint, { x, y });
+    onChange(updated);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -364,17 +414,27 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
             />
           ))}
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
-              {methodState.bargue.points.map((pt) => (
-                <circle
-                  key={pt.id}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={6}
-                  className="cursor-move hover:scale-125 transition-transform"
-                  onPointerDown={(e) => handlePointerDown(pt.id, e)}
-                />
-              ))}
+            <g className="pointer-events-auto">
+              {methodState.bargue.points.map((pt) => {
+                const style = getAnchorVisualProps(pt.source);
+                return (
+                  <circle
+                    key={pt.id}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={6}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-move hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown(pt.id, e)}
+                  >
+                    <title>{`Bargue Anchor (${pt.id}): ${style.label}`}</title>
+                  </circle>
+                );
+              })}
             </g>
           )}
         </g>

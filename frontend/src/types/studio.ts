@@ -51,7 +51,7 @@ export type HistogramAnalysisState =
   | { status: 'ready'; data: HistogramStats }
   | { status: 'error'; message: string };
 
-export type DeclaredSource = 'detected' | 'estimated' | 'fallback';
+export type DeclaredSource = 'detected' | 'estimated' | 'fallback' | 'hand-placed';
 export type LandmarkSource = DeclaredSource;
 
 export interface AnchorPoint {
@@ -181,6 +181,7 @@ export interface BarguePoint {
   id: string;
   x: number;
   y: number;
+  source?: DeclaredSource;
 }
 
 export interface BargueEnvelope {
