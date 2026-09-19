@@ -7,6 +7,7 @@ import { TonalShaderDispatcher } from '../../utils/tonalShaderDispatcher';
 import { buildValueLayers } from '../../utils/cutPoints';
 import { capRenderSize } from '../../utils/renderScale';
 import { fetchEdgeContours } from '../../utils/analysisApi';
+import { isLoadedImageSynchronized } from '../../utils/edgesView';
 import { computeTrueSizeScale } from '../../utils/paperMapping';
 import {
   clampBlurRadius,
@@ -354,7 +355,16 @@ export const StudioCanvas: React.FC<StudioCanvasProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     const img = loadedImage;
-    if (project.viewMode !== 'edges' || !canvas || !img || !project.imageSrc) return;
+    if (project.viewMode !== 'edges' || !canvas || !project.imageSrc) return;
+
+    // loadedImage can briefly lag project.imageSrc while the new Image element is
+    // still decoding — clear the previous Reference Image's contours and wait until
+    // loadedImage actually reflects the current Reference Image (Issue #14).
+    if (!img || !isLoadedImageSynchronized(img, project.imageSrc)) {
+      setEdgesState({ status: 'loading' });
+      canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
 
     if (canvas.width !== renderSize.width || canvas.height !== renderSize.height) {
       canvas.width = renderSize.width;
