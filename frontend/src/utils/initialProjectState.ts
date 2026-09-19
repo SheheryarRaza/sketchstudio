@@ -50,15 +50,10 @@ export const INITIAL_METHODS_STATE: DrawingMethodState = {
   loomis: {
     center: { x: 300, y: 340, source: 'fallback' },
     radius: 170,
-    radiusSource: 'fallback',
     browLineY: 340,
-    browSource: 'fallback',
     noseLineY: 440,
-    noseSource: 'fallback',
     chinY: 550,
-    chinSource: 'fallback',
     jawWidth: 150,
-    jawSource: 'fallback',
     tiltAngle: 0,
     sources: {
       center: 'fallback',

@@ -57,19 +57,25 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
         self.assertLess(reilly["leftEye"]["x"], reilly["rightEye"]["x"])
         self.assertEqual(reilly["leftEye"]["source"], "detected")
 
-    def test_yunet_hit_but_mesh_miss_still_reports_detected_with_bbox_geometry(self):
+    def test_yunet_hit_but_mesh_miss_reports_estimated_for_bbox_geometry(self):
         """If YuNet finds a face but the mesh landmarker doesn't on that same photo,
-        jaw/temple/chin/brow degrade to the pre-upgrade bbox math while anchors stay
-        "detected" — no worse than this service's behavior before this ticket."""
+        face center and direct keypoints stay 'detected', while jaw/temple/chin/brow
+        degrade to bbox-derived geometry declared as 'estimated'."""
         with patch.object(CVService, "_mesh_contour_anchors", return_value=None) as mocked:
             result = CVService.estimate_facial_landmarks(PORTRAIT_PATH.read_bytes())
 
         mocked.assert_called_once()
         loomis = result["loomis"]
+        reilly = result["reilly"]
         self.assertEqual(loomis["center"]["source"], "detected")
         self.assertEqual(loomis["radius"]["source"], "estimated")
+        self.assertEqual(loomis["browLineY"]["source"], "estimated")
+        self.assertEqual(loomis["chinY"]["source"], "estimated")
         self.assertEqual(loomis["jawWidth"]["value"], int(loomis["radius"]["value"] * 0.9))
         self.assertEqual(loomis["browLineY"]["value"], loomis["center"]["y"])
+        self.assertEqual(reilly["noseTip"]["source"], "detected")
+        self.assertEqual(reilly["leftJaw"]["source"], "estimated")
+        self.assertEqual(reilly["chinBottom"]["source"], "estimated")
 
     def test_construction_uses_mesh_anchors_when_available(self):
         mesh_anchors = MeshAnchors(
@@ -104,7 +110,7 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
         self.assertEqual(result["loomis"]["jawWidth"]["value"], int(radius * 0.9))
         self.assertEqual(result["loomis"]["browLineY"]["value"], center_y)
         self.assertEqual(result["loomis"]["chinY"]["value"], int(FAKE_FACE.y + FAKE_FACE.h))
-        self.assertEqual(result["reilly"]["chinBottom"], {"x": center_x, "y": int(FAKE_FACE.y + FAKE_FACE.h), "source": "detected"})
+        self.assertEqual(result["reilly"]["chinBottom"], {"x": center_x, "y": int(FAKE_FACE.y + FAKE_FACE.h), "source": "estimated"})
 
 
 class TestFacialLandmarksFallbackPath(unittest.TestCase):

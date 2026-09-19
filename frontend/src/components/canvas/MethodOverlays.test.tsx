@@ -114,19 +114,18 @@ test('MethodOverlays visibly distinguishes detected, estimated, and fallback anc
     loomis: {
       center: { x: 300, y: 340, source: 'detected' },
       radius: 170,
-      radiusSource: 'estimated',
       browLineY: 340,
-      browSource: 'detected',
       noseLineY: 440,
       chinY: 550,
-      chinSource: 'detected',
       jawWidth: 150,
       tiltAngle: 0,
       sources: {
         center: 'detected',
         radius: 'estimated',
         browLineY: 'detected',
+        noseLineY: 'detected',
         chinY: 'detected',
+        jawWidth: 'detected',
       },
     },
   };

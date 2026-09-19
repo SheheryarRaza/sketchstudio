@@ -182,86 +182,72 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
           />
           {showAnchorPoints && (
             <g className="pointer-events-auto">
-              {(() => {
-                const src = methodState.loomis.center.source || methodState.loomis.sources?.center || 'fallback';
-                const style = getAnchorVisualProps(src);
+              {[
+                {
+                  id: 'loomis-center',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.center.y,
+                  r: 6,
+                  cursor: 'cursor-move',
+                  title: 'Loomis Center',
+                  source: methodState.loomis.center.source || methodState.loomis.sources?.center || 'fallback',
+                },
+                {
+                  id: 'loomis-radius',
+                  cx: methodState.loomis.center.x + methodState.loomis.radius,
+                  cy: methodState.loomis.center.y,
+                  r: 6,
+                  cursor: 'cursor-ew-resize',
+                  title: 'Loomis Ball Size',
+                  source: methodState.loomis.sources?.radius || 'estimated',
+                },
+                {
+                  id: 'loomis-brow',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.browLineY,
+                  r: 5,
+                  cursor: 'cursor-ns-resize',
+                  title: 'Loomis Brow Line',
+                  source: methodState.loomis.sources?.browLineY || 'fallback',
+                },
+                {
+                  id: 'loomis-nose',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.noseLineY,
+                  r: 5,
+                  cursor: 'cursor-ns-resize',
+                  title: 'Loomis Nose Line',
+                  source: methodState.loomis.sources?.noseLineY || 'fallback',
+                },
+                {
+                  id: 'loomis-chin',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.chinY,
+                  r: 5,
+                  cursor: 'cursor-ns-resize',
+                  title: 'Loomis Chin',
+                  source: methodState.loomis.sources?.chinY || 'fallback',
+                },
+              ].map((anchor) => {
+                const style = getAnchorVisualProps(anchor.source);
                 return (
                   <circle
-                    cx={methodState.loomis.center.x}
-                    cy={methodState.loomis.center.y}
-                    r={6}
+                    key={anchor.id}
+                    cx={anchor.cx}
+                    cy={anchor.cy}
+                    r={anchor.r}
                     fill={style.fill}
                     stroke={style.stroke}
                     strokeWidth={style.strokeWidth}
                     strokeDasharray={style.strokeDasharray}
                     data-source={style.label}
-                    className={`cursor-move hover:scale-125 transition-transform ${style.className}`}
-                    onPointerDown={(e) => handlePointerDown('loomis-center', e)}
+                    className={`${anchor.cursor} hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown(anchor.id, e)}
                   >
-                    <title>{`Loomis Center: ${style.label}`}</title>
+                    <title>{`${anchor.title}: ${style.label}`}</title>
                   </circle>
                 );
-              })()}
-              {(() => {
-                const src = methodState.loomis.radiusSource || methodState.loomis.sources?.radius || 'estimated';
-                const style = getAnchorVisualProps(src);
-                return (
-                  <circle
-                    cx={methodState.loomis.center.x + methodState.loomis.radius}
-                    cy={methodState.loomis.center.y}
-                    r={6}
-                    fill={style.fill}
-                    stroke={style.stroke}
-                    strokeWidth={style.strokeWidth}
-                    strokeDasharray={style.strokeDasharray}
-                    data-source={style.label}
-                    className={`cursor-ew-resize hover:scale-125 transition-transform ${style.className}`}
-                    onPointerDown={(e) => handlePointerDown('loomis-radius', e)}
-                  >
-                    <title>{`Loomis Ball Size: ${style.label}`}</title>
-                  </circle>
-                );
-              })()}
-              {(() => {
-                const src = methodState.loomis.browSource || methodState.loomis.sources?.browLineY || 'detected';
-                const style = getAnchorVisualProps(src);
-                return (
-                  <circle
-                    cx={methodState.loomis.center.x}
-                    cy={methodState.loomis.browLineY}
-                    r={5}
-                    fill={style.fill}
-                    stroke={style.stroke}
-                    strokeWidth={style.strokeWidth}
-                    strokeDasharray={style.strokeDasharray}
-                    data-source={style.label}
-                    className={`cursor-ns-resize hover:scale-125 transition-transform ${style.className}`}
-                    onPointerDown={(e) => handlePointerDown('loomis-brow', e)}
-                  >
-                    <title>{`Loomis Brow Line: ${style.label}`}</title>
-                  </circle>
-                );
-              })()}
-              {(() => {
-                const src = methodState.loomis.chinSource || methodState.loomis.sources?.chinY || 'detected';
-                const style = getAnchorVisualProps(src);
-                return (
-                  <circle
-                    cx={methodState.loomis.center.x}
-                    cy={methodState.loomis.chinY}
-                    r={5}
-                    fill={style.fill}
-                    stroke={style.stroke}
-                    strokeWidth={style.strokeWidth}
-                    strokeDasharray={style.strokeDasharray}
-                    data-source={style.label}
-                    className={`cursor-ns-resize hover:scale-125 transition-transform ${style.className}`}
-                    onPointerDown={(e) => handlePointerDown('loomis-chin', e)}
-                  >
-                    <title>{`Loomis Chin: ${style.label}`}</title>
-                  </circle>
-                );
-              })()}
+              })}
             </g>
           )}
         </g>

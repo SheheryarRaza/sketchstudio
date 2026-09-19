@@ -151,6 +151,8 @@ export interface PaperMappingConfig {
   fillMode: PaperFillMode;
 }
 
+export type LoomisAnchorKey = 'center' | 'radius' | 'browLineY' | 'noseLineY' | 'chinY' | 'jawWidth';
+
 export interface LoomisAnchorPoints {
   center: AnchorPoint;
   radius: number;
@@ -159,19 +161,7 @@ export interface LoomisAnchorPoints {
   chinY: number;
   jawWidth: number;
   tiltAngle: number; // in degrees
-  radiusSource?: DeclaredSource;
-  browSource?: DeclaredSource;
-  noseSource?: DeclaredSource;
-  chinSource?: DeclaredSource;
-  jawSource?: DeclaredSource;
-  sources?: {
-    center?: DeclaredSource;
-    radius?: DeclaredSource;
-    browLineY?: DeclaredSource;
-    noseLineY?: DeclaredSource;
-    chinY?: DeclaredSource;
-    jawWidth?: DeclaredSource;
-  };
+  sources?: Partial<Record<LoomisAnchorKey, DeclaredSource>>;
 }
 
 export interface ReillyAnchorPoints {

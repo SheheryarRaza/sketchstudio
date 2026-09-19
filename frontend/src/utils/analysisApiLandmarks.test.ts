@@ -48,11 +48,11 @@ test('scaleLandmarksToImageSpace rescales detected response and preserves per-an
 
   // Check Declared Sources
   assert.equal(rescaled.loomis.center.source, 'detected');
-  assert.equal(rescaled.loomis.radiusSource, 'estimated');
-  assert.equal(rescaled.loomis.browSource, 'detected');
-  assert.equal(rescaled.loomis.chinSource, 'detected');
   assert.equal(rescaled.loomis.sources?.radius, 'estimated');
   assert.equal(rescaled.loomis.sources?.center, 'detected');
+  assert.equal(rescaled.loomis.sources?.browLineY, 'detected');
+  assert.equal(rescaled.loomis.sources?.chinY, 'detected');
+  assert.equal(rescaled.loomis.sources?.jawWidth, 'detected');
 
   // Check Reilly points rescaled and sources preserved
   assert.equal(rescaled.reilly.leftEye.x, 340);
@@ -106,7 +106,6 @@ test('scaleLandmarksToImageSpace rescales fallback response and preserves fallba
   const rescaled = scaleLandmarksToImageSpace(fallbackLandmarks, renderSize);
 
   assert.equal(rescaled.loomis.center.source, 'fallback');
-  assert.equal(rescaled.loomis.radiusSource, 'fallback');
   assert.equal(rescaled.loomis.sources?.radius, 'fallback');
   assert.equal(rescaled.loomis.sources?.browLineY, 'fallback');
 

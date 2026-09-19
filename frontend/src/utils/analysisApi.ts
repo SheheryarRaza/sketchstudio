@@ -1,6 +1,14 @@
 import type { RenderSize } from './renderScale';
-import type { HistogramStats, LandmarkStats, LoomisAnchorPoints, ReillyAnchorPoints } from '../types/studio';
+import type {
+  AnchorPoint,
+  DeclaredSource,
+  HistogramStats,
+  LandmarkStats,
+  LoomisAnchorPoints,
+  ReillyAnchorPoints,
+} from '../types/studio';
 import type { LightDirectionResult } from '../types/lightDirection';
+import type { EdgeQualitySegment } from '../types/edgeQuality';
 
 export const IMAGE_TOO_LARGE_ERROR_MESSAGE = 'Image is too large for analysis. Please resize and retry.';
 
@@ -120,8 +128,6 @@ export async function fetchLandmarks(
   return res.json();
 }
 
-import type { AnchorPoint, DeclaredSource } from '../types/studio';
-
 const scalePointWithSource = (
   point: { x: number; y: number; source?: DeclaredSource },
   scale: number,
@@ -135,7 +141,7 @@ const getScalarVal = (val: { value: number } | number): number =>
   typeof val === 'object' && val !== null ? val.value : val;
 
 const getScalarSource = (val: { source: DeclaredSource } | number, fallback: DeclaredSource): DeclaredSource =>
-  typeof val === 'object' && val !== null ? val.source : fallback;
+  typeof val === 'object' && val !== null && 'source' in val ? val.source : fallback;
 
 /**
  * Rescales Landmark Auto-Snap anchors from the capped-image space they were detected in
@@ -152,16 +158,16 @@ export function scaleLandmarksToImageSpace(
   const radiusSource = getScalarSource(loomis.radius, 'estimated');
 
   const browVal = getScalarVal(loomis.browLineY);
-  const browSource = getScalarSource(loomis.browLineY, 'detected');
+  const browSource = getScalarSource(loomis.browLineY, 'fallback');
 
   const noseVal = getScalarVal(loomis.noseLineY);
-  const noseSource = getScalarSource(loomis.noseLineY, 'detected');
+  const noseSource = getScalarSource(loomis.noseLineY, 'fallback');
 
   const chinVal = getScalarVal(loomis.chinY);
-  const chinSource = getScalarSource(loomis.chinY, 'detected');
+  const chinSource = getScalarSource(loomis.chinY, 'fallback');
 
   const jawVal = getScalarVal(loomis.jawWidth);
-  const jawSource = getScalarSource(loomis.jawWidth, 'detected');
+  const jawSource = getScalarSource(loomis.jawWidth, 'fallback');
 
   const tiltVal = typeof loomis.tiltAngle === 'object' && loomis.tiltAngle !== null
     ? (loomis.tiltAngle as any).value
@@ -178,11 +184,6 @@ export function scaleLandmarksToImageSpace(
       chinY: chinVal / size.scale,
       jawWidth: jawVal / size.scale,
       tiltAngle: tiltVal,
-      radiusSource,
-      browSource,
-      noseSource,
-      chinSource,
-      jawSource,
       sources: {
         center: centerPoint.source,
         radius: radiusSource,
@@ -206,8 +207,6 @@ export function scaleLandmarksToImageSpace(
     },
   };
 }
-
-import type { EdgeQualitySegment } from '../types/edgeQuality';
 
 /**
  * Posts the display-capped Reference Image to the edge suggestion endpoint and

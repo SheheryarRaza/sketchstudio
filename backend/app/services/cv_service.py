@@ -392,33 +392,39 @@ class CVService:
             left_temple = {"x": int(mesh_anchors.left_temple[0]), "y": int(mesh_anchors.left_temple[1]), "source": "detected"}
             right_temple = {"x": int(mesh_anchors.right_temple[0]), "y": int(mesh_anchors.right_temple[1]), "source": "detected"}
             jaw_width = int(mesh_anchors.jaw_width)
+            jaw_width_source = "detected"
             chin_x, chin_y = int(mesh_anchors.chin[0]), int(mesh_anchors.chin[1])
+            chin_source = "detected"
             brow_line_y = int(mesh_anchors.brow_line_y)
+            brow_source = "detected"
         else:
-            sym = CVService._symmetric_jaw_temple(center_x, center_y, radius, source="detected")
+            sym = CVService._symmetric_jaw_temple(center_x, center_y, radius, source="estimated")
             left_jaw = sym["leftJaw"]
             right_jaw = sym["rightJaw"]
             left_temple = sym["leftTemple"]
             right_temple = sym["rightTemple"]
             jaw_width = int(radius * 0.9)
+            jaw_width_source = "estimated"
             chin_x, chin_y = center_x, int(face.y + face.h)
+            chin_source = "estimated"
             brow_line_y = center_y
+            brow_source = "estimated"
 
         return {
             "loomis": {
                 "center": {"x": center_x, "y": center_y, "source": "detected"},
                 "radius": {"value": radius, "radius": radius, "source": "estimated"},
-                "browLineY": {"value": brow_line_y, "y": brow_line_y, "source": "detected"},
+                "browLineY": {"value": brow_line_y, "y": brow_line_y, "source": brow_source},
                 "noseLineY": {"value": int(nose_y), "y": int(nose_y), "source": "detected"},
-                "chinY": {"value": chin_y, "y": chin_y, "source": "detected"},
-                "jawWidth": {"value": jaw_width, "source": "detected"},
+                "chinY": {"value": chin_y, "y": chin_y, "source": chin_source},
+                "jawWidth": {"value": jaw_width, "source": jaw_width_source},
                 "tiltAngle": 0,
             },
             "reilly": {
-                "browCenter": {"x": center_x, "y": brow_line_y - 10, "source": "detected"},
+                "browCenter": {"x": center_x, "y": brow_line_y - 10, "source": brow_source},
                 "noseTip": {"x": int(nose_x), "y": int(nose_y), "source": "detected"},
                 "mouthCenter": {"x": mouth_x, "y": mouth_y, "source": "detected"},
-                "chinBottom": {"x": chin_x, "y": chin_y, "source": "detected"},
+                "chinBottom": {"x": chin_x, "y": chin_y, "source": chin_source},
                 "leftEye": {"x": int(face.right_eye[0]), "y": int(face.right_eye[1]), "source": "detected"},
                 "rightEye": {"x": int(face.left_eye[0]), "y": int(face.left_eye[1]), "source": "detected"},
                 "leftJaw": left_jaw,
@@ -439,7 +445,8 @@ class CVService:
 
         h, w = img.shape[:2]
 
-        # 1. Primary detector: MediaPipe Face Landmarker handles close-up portraits and >4000px images
+        # 1. Primary detector: MediaPipe Face Landmarker handles Head Studies where
+        # the face fills the frame, as well as images upscaled past 4000 px on the long edge.
         mesh_anchors = CVService._mesh_contour_anchors(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         if mesh_anchors is not None:
             return CVService._construction_from_mesh(mesh_anchors)
