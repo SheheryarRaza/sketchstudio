@@ -172,6 +172,36 @@ test('applyWorkflowPreset preserves unrelated project state (imageSrc, calibrati
   assert.deepEqual(next.paperMapping, base.paperMapping);
 });
 
+test('applyWorkflowPreset returns unchanged state when given an unknown presetId', () => {
+  const base: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    viewMode: 'original',
+    isSandbox: false,
+  };
+
+  // @ts-expect-error testing runtime resilience against unexpected presetId
+  const next = applyWorkflowPreset(base, 'non-existent-preset');
+  assert.equal(next, base);
+});
+
+test('applyWorkflowPreset regenerates layerMeta when switching from charcoal to preset medium', () => {
+  const base: ProjectState = {
+    ...INITIAL_PROJECT_STATE,
+    medium: 'charcoal',
+    values: {
+      ...INITIAL_PROJECT_STATE.values,
+      medium: 'charcoal',
+    },
+  };
+
+  const next = applyWorkflowPreset(base, 'portrait-static');
+  assert.equal(next.medium, 'graphite');
+  // Graphite 5 layers ends with 8B, not Charcoal
+  const lastLayer = next.layerMeta[next.layerMeta.length - 1];
+  assert.equal(lastLayer.pencilGrade, '8B');
+  assert.notEqual(lastLayer.pencilGrade, 'Charcoal');
+});
+
 test('suggestPresetId recommends portrait-dramatic for high-contrast spread', () => {
   const highContrastStats: HistogramStats = {
     width: 600,

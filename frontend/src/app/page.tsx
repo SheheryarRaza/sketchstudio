@@ -468,6 +468,8 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: src,
         title: file.name.replace(/\.[^/.]+$/, ''),
+        histogram: { status: 'idle' },
+        landmarks: { status: 'idle' },
       }));
       setViewState((prev) => ({
         ...prev,
@@ -497,6 +499,8 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: dataUrl,
         title: title,
+        histogram: { status: 'idle' },
+        landmarks: { status: 'idle' },
       }));
       setViewState((prev) => ({
         ...prev,
@@ -524,18 +528,16 @@ export default function StudioHomePage() {
   };
 
   const handleSelectWorkflowPreset = (presetId: WorkflowPresetId) => {
-    if (!viewState.isSandbox) {
-      try {
-        const seenNotice = sessionStorage.getItem('sketchstudio_sandbox_preset_toast_seen');
-        if (!seenNotice) {
-          setSandboxNoticeToast(
-            'Switched to Sandbox Mode — Workflow presets configure View Mode, Drawing Method, and Grid directly, exiting the guided Atelier stages.'
-          );
-          sessionStorage.setItem('sketchstudio_sandbox_preset_toast_seen', 'true');
-        }
-      } catch {
-        // Ignore storage errors
+    try {
+      const seenNotice = sessionStorage.getItem('sketchstudio_sandbox_preset_toast_seen');
+      if (!seenNotice) {
+        setSandboxNoticeToast(
+          'Switched to Sandbox Mode — Workflow presets configure View Mode, Drawing Method, and Grid directly, exiting the guided Atelier stages.'
+        );
+        sessionStorage.setItem('sketchstudio_sandbox_preset_toast_seen', 'true');
       }
+    } catch {
+      // Ignore storage errors
     }
 
     const applied = applyWorkflowPreset(project, presetId);
