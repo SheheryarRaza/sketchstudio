@@ -42,6 +42,12 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
         # Brow sits above the eyes, and chin sits below the nose.
         self.assertLess(loomis["browLineY"]["value"], reilly["leftEye"]["y"])
         self.assertGreater(loomis["chinY"]["value"], loomis["noseLineY"]["value"])
+        # Tilt angle on upright portrait is near zero.
+        self.assertIn("tiltAngle", loomis)
+        self.assertEqual(loomis["tiltAngle"]["source"], "detected")
+        self.assertLess(abs(loomis["tiltAngle"]["value"]), 2.0)
+        # Cranium ball size is sized to full cranium (> 120px on portrait).
+        self.assertGreater(loomis["radius"]["value"], 120)
         # Temple sits above jaw, which sits above the chin — real face topology,
         # not three points collapsed onto the same bbox-proportional guess.
         self.assertLess(reilly["leftTemple"]["y"], reilly["leftJaw"]["y"])
@@ -56,6 +62,17 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
         # Eye/nose/mouth anchors are detected.
         self.assertLess(reilly["leftEye"]["x"], reilly["rightEye"]["x"])
         self.assertEqual(reilly["leftEye"]["source"], "detected")
+
+    def test_rolled_fixture_detects_roll_tilt_angle(self):
+        rolled_path = PORTRAIT_PATH.parent / "rolled_portrait.jpg"
+        if not rolled_path.exists():
+            self.skipTest("Rolled portrait fixture not found")
+        result = CVService.estimate_facial_landmarks(rolled_path.read_bytes())
+        loomis = result["loomis"]
+        self.assertIn("tiltAngle", loomis)
+        self.assertEqual(loomis["tiltAngle"]["source"], "detected")
+        self.assertGreater(loomis["tiltAngle"]["value"], 5.0)
+        self.assertLess(loomis["tiltAngle"]["value"], 25.0)
 
     def test_yunet_hit_but_mesh_miss_reports_estimated_for_bbox_geometry(self):
         """If YuNet finds a face but the mesh landmarker doesn't on that same photo,
@@ -105,7 +122,8 @@ class TestFacialLandmarksDetectedPath(unittest.TestCase):
 
         center_x = int(FAKE_FACE.x + FAKE_FACE.w / 2)
         center_y = int((FAKE_FACE.right_eye[1] + FAKE_FACE.left_eye[1]) / 2)
-        radius = int(FAKE_FACE.w * 0.5)
+        brow_to_chin = abs((FAKE_FACE.y + FAKE_FACE.h) - center_y)
+        radius = int(max(FAKE_FACE.w, brow_to_chin) * 0.75)
 
         self.assertEqual(result["loomis"]["jawWidth"]["value"], int(radius * 0.9))
         self.assertEqual(result["loomis"]["browLineY"]["value"], center_y)
@@ -122,7 +140,7 @@ class TestFacialLandmarksFallbackPath(unittest.TestCase):
 
         self.assertIn("loomis", result)
         self.assertIn("reilly", result)
-        for key in ["center", "radius", "browLineY", "noseLineY", "chinY", "jawWidth"]:
+        for key in ["center", "radius", "browLineY", "noseLineY", "chinY", "jawWidth", "tiltAngle"]:
             self.assertEqual(result["loomis"][key]["source"], "fallback")
         for key, pt in result["reilly"].items():
             self.assertEqual(pt["source"], "fallback")

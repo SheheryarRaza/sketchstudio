@@ -62,6 +62,7 @@ export const INITIAL_METHODS_STATE: DrawingMethodState = {
       noseLineY: 'fallback',
       chinY: 'fallback',
       jawWidth: 'fallback',
+      tiltAngle: 'fallback',
     },
   },
   reilly: {

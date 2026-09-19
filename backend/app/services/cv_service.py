@@ -35,6 +35,15 @@ def _left_right(a: tuple, b: tuple) -> tuple:
     return (a, b) if a[0] <= b[0] else (b, a)
 
 
+def _calculate_tilt_angle(eye_a: tuple, eye_b: tuple) -> float:
+    """Calculates head roll tilt angle in degrees from eye landmarks.
+    Image-left eye is ordered first so positive angle indicates clockwise roll."""
+    eye_left, eye_right = _left_right(eye_a, eye_b)
+    dx = eye_right[0] - eye_left[0]
+    dy = eye_right[1] - eye_left[1]
+    return round(math.degrees(math.atan2(dy, dx)), 1) if dx != 0 or dy != 0 else 0.0
+
+
 def _direction_label_from_angle(angle_deg: float) -> str:
     """Returns human-readable lighting direction quadrant label from Cartesian angle in degrees."""
     angle = angle_deg % 360.0
@@ -146,6 +155,7 @@ class MeshAnchors(NamedTuple):
     max_x: float = 0.0
     min_y: float = 0.0
     max_y: float = 0.0
+    brow_center: tuple = (0.0, 0.0)
 
     @property
     def jaw_width(self) -> float:
@@ -277,7 +287,7 @@ class CVService:
                 "noseLineY": {"value": center_y + int(radius * 0.6), "y": center_y + int(radius * 0.6), "source": "fallback"},
                 "chinY": {"value": center_y + int(radius * 1.25), "y": center_y + int(radius * 1.25), "source": "fallback"},
                 "jawWidth": {"value": int(radius * 0.9), "source": "fallback"},
-                "tiltAngle": 0,
+                "tiltAngle": {"value": 0, "source": "fallback"},
             },
             "reilly": {
                 "browCenter": {"x": center_x, "y": center_y - 10, "source": "fallback"},
@@ -310,7 +320,9 @@ class CVService:
 
         left_jaw, right_jaw = _left_right(point(_JAW_LANDMARKS[0]), point(_JAW_LANDMARKS[1]))
         left_temple, right_temple = _left_right(point(_TEMPLE_LANDMARKS[0]), point(_TEMPLE_LANDMARKS[1]))
-        brow_line_y = sum(point(i)[1] for i in _BROW_LANDMARKS) / len(_BROW_LANDMARKS)
+        brow_pts = [point(i) for i in _BROW_LANDMARKS]
+        brow_center = (sum(p[0] for p in brow_pts) / len(brow_pts), sum(p[1] for p in brow_pts) / len(brow_pts))
+        brow_line_y = brow_center[1]
         left_eye, right_eye = _left_right(point(468), point(473))
         nose_tip = point(4)
         mouth_center = ((point(13)[0] + point(14)[0]) / 2, (point(13)[1] + point(14)[1]) / 2)
@@ -333,6 +345,7 @@ class CVService:
             max_x=max(xs),
             min_y=min(ys),
             max_y=max(ys),
+            brow_center=brow_center,
         )
 
     @staticmethod
@@ -342,12 +355,31 @@ class CVService:
         center_x = int((mesh_anchors.min_x + mesh_anchors.max_x) / 2)
         center_y = int((mesh_anchors.left_eye[1] + mesh_anchors.right_eye[1]) / 2)
         fw = mesh_anchors.max_x - mesh_anchors.min_x
-        radius = int(fw * 0.5)
+        brow_to_chin = abs(mesh_anchors.chin[1] - mesh_anchors.brow_line_y)
+        # Standard Loomis cranium proportions: the cranial ball covers the whole skull dome.
+        # Temporal width (face width fw) is ~2/3 of cranial ball diameter, so radius is 3/4 * fw.
+        # Brow-to-chin span is 2 face thirds, while cranial sphere diameter is 3 thirds (radius = 3/4 * span).
+        span = max(fw, brow_to_chin)
+        radius = int(span * 0.75)
 
-        chin_x, chin_y = int(mesh_anchors.chin[0]), int(mesh_anchors.chin[1])
-        brow_line_y = int(mesh_anchors.brow_line_y)
+        eye_left, eye_right = _left_right(mesh_anchors.left_eye, mesh_anchors.right_eye)
+        tilt_angle = _calculate_tilt_angle(eye_left, eye_right)
+
+        rad = math.radians(tilt_angle)
+        uy_x, uy_y = -math.sin(rad), math.cos(rad)
+
+        def project_y(pt: tuple) -> int:
+            """Projects a landmark point onto the head's tilted vertical midline."""
+            offset_x = pt[0] - center_x
+            offset_y = pt[1] - center_y
+            return int(center_y + offset_x * uy_x + offset_y * uy_y)
+
+        brow_line_y = project_y(mesh_anchors.brow_center) if mesh_anchors.brow_center != (0.0, 0.0) else int(mesh_anchors.brow_line_y)
+        nose_y = project_y(mesh_anchors.nose_tip)
+        chin_y = project_y(mesh_anchors.chin)
         jaw_width = int(mesh_anchors.jaw_width)
-        nose_x, nose_y = int(mesh_anchors.nose_tip[0]), int(mesh_anchors.nose_tip[1])
+        chin_x = int(mesh_anchors.chin[0])
+        nose_x = int(mesh_anchors.nose_tip[0])
         mouth_x, mouth_y = int(mesh_anchors.mouth_center[0]), int(mesh_anchors.mouth_center[1])
 
         return {
@@ -358,7 +390,7 @@ class CVService:
                 "noseLineY": {"value": nose_y, "y": nose_y, "source": "detected"},
                 "chinY": {"value": chin_y, "y": chin_y, "source": "detected"},
                 "jawWidth": {"value": jaw_width, "source": "detected"},
-                "tiltAngle": 0,
+                "tiltAngle": {"value": tilt_angle, "source": "detected"},
             },
             "reilly": {
                 "browCenter": {"x": center_x, "y": brow_line_y - 10, "source": "detected"},
@@ -381,10 +413,11 @@ class CVService:
         back to bbox-proportional geometry when the mesh landmarker couldn't find a face."""
         center_x = int(face.x + face.w / 2)
         center_y = int((face.right_eye[1] + face.left_eye[1]) / 2)
-        radius = int(face.w * 0.5)
         nose_x, nose_y = face.nose_tip
         mouth_x = int((face.right_mouth[0] + face.left_mouth[0]) / 2)
         mouth_y = int((face.right_mouth[1] + face.left_mouth[1]) / 2)
+
+        tilt_angle = _calculate_tilt_angle(face.right_eye, face.left_eye)
 
         if mesh_anchors is not None:
             left_jaw = {"x": int(mesh_anchors.left_jaw[0]), "y": int(mesh_anchors.left_jaw[1]), "source": "detected"}
@@ -398,6 +431,16 @@ class CVService:
             brow_line_y = int(mesh_anchors.brow_line_y)
             brow_source = "detected"
         else:
+            chin_x, chin_y = center_x, int(face.y + face.h)
+            chin_source = "estimated"
+            brow_line_y = center_y
+            brow_source = "estimated"
+
+        brow_to_chin = abs(chin_y - brow_line_y)
+        span = max(face.w, brow_to_chin)
+        radius = int(span * 0.75)
+
+        if mesh_anchors is None:
             sym = CVService._symmetric_jaw_temple(center_x, center_y, radius, source="estimated")
             left_jaw = sym["leftJaw"]
             right_jaw = sym["rightJaw"]
@@ -405,10 +448,6 @@ class CVService:
             right_temple = sym["rightTemple"]
             jaw_width = int(radius * 0.9)
             jaw_width_source = "estimated"
-            chin_x, chin_y = center_x, int(face.y + face.h)
-            chin_source = "estimated"
-            brow_line_y = center_y
-            brow_source = "estimated"
 
         return {
             "loomis": {
@@ -418,7 +457,7 @@ class CVService:
                 "noseLineY": {"value": int(nose_y), "y": int(nose_y), "source": "detected"},
                 "chinY": {"value": chin_y, "y": chin_y, "source": chin_source},
                 "jawWidth": {"value": jaw_width, "source": jaw_width_source},
-                "tiltAngle": 0,
+                "tiltAngle": {"value": tilt_angle, "source": "detected"},
             },
             "reilly": {
                 "browCenter": {"x": center_x, "y": brow_line_y - 10, "source": brow_source},
@@ -433,6 +472,7 @@ class CVService:
                 "rightTemple": right_temple,
             },
         }
+
 
     @staticmethod
     def estimate_facial_landmarks(image_bytes: bytes) -> dict:

@@ -172,6 +172,7 @@ export function scaleLandmarksToImageSpace(
   const tiltVal = typeof loomis.tiltAngle === 'object' && loomis.tiltAngle !== null
     ? (loomis.tiltAngle as any).value
     : (loomis.tiltAngle ?? 0);
+  const tiltSource = getScalarSource(loomis.tiltAngle, 'fallback');
 
   const centerPoint = scalePointWithSource(loomis.center, size.scale);
 
@@ -191,6 +192,7 @@ export function scaleLandmarksToImageSpace(
         noseLineY: noseSource,
         chinY: chinSource,
         jawWidth: jawSource,
+        tiltAngle: tiltSource,
       },
     },
     reilly: {
