@@ -51,7 +51,19 @@ export type HistogramAnalysisState =
   | { status: 'ready'; data: HistogramStats }
   | { status: 'error'; message: string };
 
-export type LandmarkSource = 'detected' | 'fallback';
+export type DeclaredSource = 'detected' | 'estimated' | 'fallback';
+export type LandmarkSource = DeclaredSource;
+
+export interface AnchorPoint {
+  x: number;
+  y: number;
+  source?: DeclaredSource;
+}
+
+export interface AnchorScalar {
+  value: number;
+  source: DeclaredSource;
+}
 
 // Declared Source for the current Cut Points: whether they're the photo-measured
 // seed, a hand-adjusted drag, or the plain evenly-spaced default — never left
@@ -59,8 +71,16 @@ export type LandmarkSource = 'detected' | 'fallback';
 export type CutPointSource = 'default' | 'seeded' | 'manual';
 
 export interface LandmarkStats {
-  source: LandmarkSource;
-  loomis: LoomisAnchorPoints;
+  source?: LandmarkSource;
+  loomis: {
+    center: AnchorPoint;
+    radius: { value: number; radius?: number; source: DeclaredSource } | number;
+    browLineY: { value: number; y?: number; source: DeclaredSource } | number;
+    noseLineY: { value: number; y?: number; source: DeclaredSource } | number;
+    chinY: { value: number; y?: number; source: DeclaredSource } | number;
+    jawWidth: { value: number; source: DeclaredSource } | number;
+    tiltAngle: number;
+  };
   reilly: ReillyAnchorPoints;
 }
 
@@ -131,27 +151,30 @@ export interface PaperMappingConfig {
   fillMode: PaperFillMode;
 }
 
+export type LoomisAnchorKey = 'center' | 'radius' | 'browLineY' | 'noseLineY' | 'chinY' | 'jawWidth';
+
 export interface LoomisAnchorPoints {
-  center: { x: number; y: number };
+  center: AnchorPoint;
   radius: number;
   browLineY: number;
   noseLineY: number;
   chinY: number;
   jawWidth: number;
   tiltAngle: number; // in degrees
+  sources?: Partial<Record<LoomisAnchorKey, DeclaredSource>>;
 }
 
 export interface ReillyAnchorPoints {
-  browCenter: { x: number; y: number };
-  noseTip: { x: number; y: number };
-  mouthCenter: { x: number; y: number };
-  chinBottom: { x: number; y: number };
-  leftEye: { x: number; y: number };
-  rightEye: { x: number; y: number };
-  leftJaw: { x: number; y: number };
-  rightJaw: { x: number; y: number };
-  leftTemple: { x: number; y: number };
-  rightTemple: { x: number; y: number };
+  browCenter: AnchorPoint;
+  noseTip: AnchorPoint;
+  mouthCenter: AnchorPoint;
+  chinBottom: AnchorPoint;
+  leftEye: AnchorPoint;
+  rightEye: AnchorPoint;
+  leftJaw: AnchorPoint;
+  rightJaw: AnchorPoint;
+  leftTemple: AnchorPoint;
+  rightTemple: AnchorPoint;
 }
 
 export interface BarguePoint {

@@ -129,7 +129,7 @@ class DetectedFace(NamedTuple):
 
 
 class MeshAnchors(NamedTuple):
-    """Jaw/temple/brow/chin anchors read from MediaPipe's real face-mesh contour, in
+    """Jaw/temple/brow/chin/eyes/nose/mouth anchors read from MediaPipe's real face-mesh contour, in
     pixel space, mirroring DetectedFace's role for the YuNet keypoints."""
 
     left_jaw: tuple
@@ -138,6 +138,14 @@ class MeshAnchors(NamedTuple):
     right_temple: tuple
     chin: tuple
     brow_line_y: float
+    left_eye: tuple = (0.0, 0.0)
+    right_eye: tuple = (0.0, 0.0)
+    nose_tip: tuple = (0.0, 0.0)
+    mouth_center: tuple = (0.0, 0.0)
+    min_x: float = 0.0
+    max_x: float = 0.0
+    min_y: float = 0.0
+    max_y: float = 0.0
 
     @property
     def jaw_width(self) -> float:
@@ -244,14 +252,14 @@ class CVService:
         return segments
 
     @staticmethod
-    def _symmetric_jaw_temple(center_x: int, center_y: int, radius: int) -> dict:
+    def _symmetric_jaw_temple(center_x: int, center_y: int, radius: int, source: str = "fallback") -> dict:
         """Jaw and temple anchors: proportional to face radius, never literal keypoints
         in any face detector (classical or DNN), so shared by both construction paths."""
         return {
-            "leftJaw": {"x": center_x - int(radius * 0.7), "y": center_y + int(radius * 0.7)},
-            "rightJaw": {"x": center_x + int(radius * 0.7), "y": center_y + int(radius * 0.7)},
-            "leftTemple": {"x": center_x - int(radius * 0.75), "y": center_y - int(radius * 0.4)},
-            "rightTemple": {"x": center_x + int(radius * 0.75), "y": center_y - int(radius * 0.4)},
+            "leftJaw": {"x": center_x - int(radius * 0.7), "y": center_y + int(radius * 0.7), "source": source},
+            "rightJaw": {"x": center_x + int(radius * 0.7), "y": center_y + int(radius * 0.7), "source": source},
+            "leftTemple": {"x": center_x - int(radius * 0.75), "y": center_y - int(radius * 0.4), "source": source},
+            "rightTemple": {"x": center_x + int(radius * 0.75), "y": center_y - int(radius * 0.4), "source": source},
         }
 
     @staticmethod
@@ -263,30 +271,30 @@ class CVService:
 
         return {
             "loomis": {
-                "center": {"x": center_x, "y": center_y},
-                "radius": radius,
-                "browLineY": center_y,
-                "noseLineY": center_y + int(radius * 0.6),
-                "chinY": center_y + int(radius * 1.25),
-                "jawWidth": int(radius * 0.9),
+                "center": {"x": center_x, "y": center_y, "source": "fallback"},
+                "radius": {"value": radius, "radius": radius, "source": "fallback"},
+                "browLineY": {"value": center_y, "y": center_y, "source": "fallback"},
+                "noseLineY": {"value": center_y + int(radius * 0.6), "y": center_y + int(radius * 0.6), "source": "fallback"},
+                "chinY": {"value": center_y + int(radius * 1.25), "y": center_y + int(radius * 1.25), "source": "fallback"},
+                "jawWidth": {"value": int(radius * 0.9), "source": "fallback"},
                 "tiltAngle": 0,
             },
             "reilly": {
-                "browCenter": {"x": center_x, "y": center_y - 10},
-                "noseTip": {"x": center_x, "y": center_y + int(radius * 0.6)},
-                "mouthCenter": {"x": center_x, "y": center_y + int(radius * 0.95)},
-                "chinBottom": {"x": center_x, "y": center_y + int(radius * 1.25)},
-                "leftEye": {"x": center_x - int(radius * 0.4), "y": center_y},
-                "rightEye": {"x": center_x + int(radius * 0.4), "y": center_y},
-                **CVService._symmetric_jaw_temple(center_x, center_y, radius),
+                "browCenter": {"x": center_x, "y": center_y - 10, "source": "fallback"},
+                "noseTip": {"x": center_x, "y": center_y + int(radius * 0.6), "source": "fallback"},
+                "mouthCenter": {"x": center_x, "y": center_y + int(radius * 0.95), "source": "fallback"},
+                "chinBottom": {"x": center_x, "y": center_y + int(radius * 1.25), "source": "fallback"},
+                "leftEye": {"x": center_x - int(radius * 0.4), "y": center_y, "source": "fallback"},
+                "rightEye": {"x": center_x + int(radius * 0.4), "y": center_y, "source": "fallback"},
+                **CVService._symmetric_jaw_temple(center_x, center_y, radius, source="fallback"),
             },
         }
 
     @staticmethod
     def _mesh_contour_anchors(image_rgb: np.ndarray) -> Optional[MeshAnchors]:
-        """Runs MediaPipe Face Landmarker over an already-YuNet-detected face and returns
-        pixel-space jaw/temple/chin/brow anchors from the real contour mesh, or None if
-        the landmarker itself couldn't find a face (caller falls back to bbox geometry)."""
+        """Runs MediaPipe Face Landmarker over the image and returns
+        pixel-space jaw/temple/chin/brow/eyes/nose/mouth anchors from the real contour mesh, or None if
+        the landmarker couldn't find a face."""
         h, w = image_rgb.shape[:2]
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
         with _face_analysis_lock:
@@ -303,6 +311,12 @@ class CVService:
         left_jaw, right_jaw = _left_right(point(_JAW_LANDMARKS[0]), point(_JAW_LANDMARKS[1]))
         left_temple, right_temple = _left_right(point(_TEMPLE_LANDMARKS[0]), point(_TEMPLE_LANDMARKS[1]))
         brow_line_y = sum(point(i)[1] for i in _BROW_LANDMARKS) / len(_BROW_LANDMARKS)
+        left_eye, right_eye = _left_right(point(468), point(473))
+        nose_tip = point(4)
+        mouth_center = ((point(13)[0] + point(14)[0]) / 2, (point(13)[1] + point(14)[1]) / 2)
+
+        xs = [pt.x * w for pt in mesh]
+        ys = [pt.y * h for pt in mesh]
 
         return MeshAnchors(
             left_jaw=left_jaw,
@@ -311,17 +325,60 @@ class CVService:
             right_temple=right_temple,
             chin=point(_CHIN_LANDMARK),
             brow_line_y=brow_line_y,
+            left_eye=left_eye,
+            right_eye=right_eye,
+            nose_tip=nose_tip,
+            mouth_center=mouth_center,
+            min_x=min(xs),
+            max_x=max(xs),
+            min_y=min(ys),
+            max_y=max(ys),
         )
 
     @staticmethod
+    def _construction_from_mesh(mesh_anchors: MeshAnchors) -> dict:
+        """Constructs Loomis and Reilly anchors directly from MediaPipe mesh landmarks,
+        marking detected points as 'detected' and Loomis ball size as 'estimated'."""
+        center_x = int((mesh_anchors.min_x + mesh_anchors.max_x) / 2)
+        center_y = int((mesh_anchors.left_eye[1] + mesh_anchors.right_eye[1]) / 2)
+        fw = mesh_anchors.max_x - mesh_anchors.min_x
+        radius = int(fw * 0.5)
+
+        chin_x, chin_y = int(mesh_anchors.chin[0]), int(mesh_anchors.chin[1])
+        brow_line_y = int(mesh_anchors.brow_line_y)
+        jaw_width = int(mesh_anchors.jaw_width)
+        nose_x, nose_y = int(mesh_anchors.nose_tip[0]), int(mesh_anchors.nose_tip[1])
+        mouth_x, mouth_y = int(mesh_anchors.mouth_center[0]), int(mesh_anchors.mouth_center[1])
+
+        return {
+            "loomis": {
+                "center": {"x": center_x, "y": center_y, "source": "detected"},
+                "radius": {"value": radius, "radius": radius, "source": "estimated"},
+                "browLineY": {"value": brow_line_y, "y": brow_line_y, "source": "detected"},
+                "noseLineY": {"value": nose_y, "y": nose_y, "source": "detected"},
+                "chinY": {"value": chin_y, "y": chin_y, "source": "detected"},
+                "jawWidth": {"value": jaw_width, "source": "detected"},
+                "tiltAngle": 0,
+            },
+            "reilly": {
+                "browCenter": {"x": center_x, "y": brow_line_y - 10, "source": "detected"},
+                "noseTip": {"x": nose_x, "y": nose_y, "source": "detected"},
+                "mouthCenter": {"x": mouth_x, "y": mouth_y, "source": "detected"},
+                "chinBottom": {"x": chin_x, "y": chin_y, "source": "detected"},
+                "leftEye": {"x": int(mesh_anchors.left_eye[0]), "y": int(mesh_anchors.left_eye[1]), "source": "detected"},
+                "rightEye": {"x": int(mesh_anchors.right_eye[0]), "y": int(mesh_anchors.right_eye[1]), "source": "detected"},
+                "leftJaw": {"x": int(mesh_anchors.left_jaw[0]), "y": int(mesh_anchors.left_jaw[1]), "source": "detected"},
+                "rightJaw": {"x": int(mesh_anchors.right_jaw[0]), "y": int(mesh_anchors.right_jaw[1]), "source": "detected"},
+                "leftTemple": {"x": int(mesh_anchors.left_temple[0]), "y": int(mesh_anchors.left_temple[1]), "source": "detected"},
+                "rightTemple": {"x": int(mesh_anchors.right_temple[0]), "y": int(mesh_anchors.right_temple[1]), "source": "detected"},
+            },
+        }
+
+    @staticmethod
     def _construction_from_detection(face: DetectedFace, mesh_anchors: Optional[MeshAnchors]) -> dict:
-        """Anchors built from real detected eye/nose/mouth keypoints. Jaw/temple/chin/brow
-        come from the MediaPipe contour mesh when available, falling back to the previous
-        bbox-proportional geometry on the rare frame where YuNet finds a face but the mesh
-        landmarker doesn't. That fallback keeps `source: "detected"` accurate to its
-        pre-existing meaning ("a face was found") rather than adding a third declared-source
-        state — it's never less accurate than this service's behavior before this contour
-        upgrade, since every anchor here was bbox-proportional unconditionally back then."""
+        """Anchors built from real detected eye/nose/mouth keypoints (YuNet detection path).
+        Jaw/temple/chin/brow come from the MediaPipe contour mesh when available, falling
+        back to bbox-proportional geometry when the mesh landmarker couldn't find a face."""
         center_x = int(face.x + face.w / 2)
         center_y = int((face.right_eye[1] + face.left_eye[1]) / 2)
         radius = int(face.w * 0.5)
@@ -330,46 +387,57 @@ class CVService:
         mouth_y = int((face.right_mouth[1] + face.left_mouth[1]) / 2)
 
         if mesh_anchors is not None:
-            jaw_temple = {
-                "leftJaw": {"x": int(mesh_anchors.left_jaw[0]), "y": int(mesh_anchors.left_jaw[1])},
-                "rightJaw": {"x": int(mesh_anchors.right_jaw[0]), "y": int(mesh_anchors.right_jaw[1])},
-                "leftTemple": {"x": int(mesh_anchors.left_temple[0]), "y": int(mesh_anchors.left_temple[1])},
-                "rightTemple": {"x": int(mesh_anchors.right_temple[0]), "y": int(mesh_anchors.right_temple[1])},
-            }
+            left_jaw = {"x": int(mesh_anchors.left_jaw[0]), "y": int(mesh_anchors.left_jaw[1]), "source": "detected"}
+            right_jaw = {"x": int(mesh_anchors.right_jaw[0]), "y": int(mesh_anchors.right_jaw[1]), "source": "detected"}
+            left_temple = {"x": int(mesh_anchors.left_temple[0]), "y": int(mesh_anchors.left_temple[1]), "source": "detected"}
+            right_temple = {"x": int(mesh_anchors.right_temple[0]), "y": int(mesh_anchors.right_temple[1]), "source": "detected"}
             jaw_width = int(mesh_anchors.jaw_width)
+            jaw_width_source = "detected"
             chin_x, chin_y = int(mesh_anchors.chin[0]), int(mesh_anchors.chin[1])
+            chin_source = "detected"
             brow_line_y = int(mesh_anchors.brow_line_y)
+            brow_source = "detected"
         else:
-            jaw_temple = CVService._symmetric_jaw_temple(center_x, center_y, radius)
+            sym = CVService._symmetric_jaw_temple(center_x, center_y, radius, source="estimated")
+            left_jaw = sym["leftJaw"]
+            right_jaw = sym["rightJaw"]
+            left_temple = sym["leftTemple"]
+            right_temple = sym["rightTemple"]
             jaw_width = int(radius * 0.9)
+            jaw_width_source = "estimated"
             chin_x, chin_y = center_x, int(face.y + face.h)
+            chin_source = "estimated"
             brow_line_y = center_y
+            brow_source = "estimated"
 
         return {
             "loomis": {
-                "center": {"x": center_x, "y": center_y},
-                "radius": radius,
-                "browLineY": brow_line_y,
-                "noseLineY": int(nose_y),
-                "chinY": chin_y,
-                "jawWidth": jaw_width,
+                "center": {"x": center_x, "y": center_y, "source": "detected"},
+                "radius": {"value": radius, "radius": radius, "source": "estimated"},
+                "browLineY": {"value": brow_line_y, "y": brow_line_y, "source": brow_source},
+                "noseLineY": {"value": int(nose_y), "y": int(nose_y), "source": "detected"},
+                "chinY": {"value": chin_y, "y": chin_y, "source": chin_source},
+                "jawWidth": {"value": jaw_width, "source": jaw_width_source},
                 "tiltAngle": 0,
             },
             "reilly": {
-                "browCenter": {"x": center_x, "y": brow_line_y - 10},
-                "noseTip": {"x": int(nose_x), "y": int(nose_y)},
-                "mouthCenter": {"x": mouth_x, "y": mouth_y},
-                "chinBottom": {"x": chin_x, "y": chin_y},
-                "leftEye": {"x": int(face.right_eye[0]), "y": int(face.right_eye[1])},
-                "rightEye": {"x": int(face.left_eye[0]), "y": int(face.left_eye[1])},
-                **jaw_temple,
+                "browCenter": {"x": center_x, "y": brow_line_y - 10, "source": brow_source},
+                "noseTip": {"x": int(nose_x), "y": int(nose_y), "source": "detected"},
+                "mouthCenter": {"x": mouth_x, "y": mouth_y, "source": "detected"},
+                "chinBottom": {"x": chin_x, "y": chin_y, "source": chin_source},
+                "leftEye": {"x": int(face.right_eye[0]), "y": int(face.right_eye[1]), "source": "detected"},
+                "rightEye": {"x": int(face.left_eye[0]), "y": int(face.left_eye[1]), "source": "detected"},
+                "leftJaw": left_jaw,
+                "rightJaw": right_jaw,
+                "leftTemple": left_temple,
+                "rightTemple": right_temple,
             },
         }
 
     @staticmethod
     def estimate_facial_landmarks(image_bytes: bytes) -> dict:
         """Detect Loomis/Reilly anchor positions from the actual face when one is found,
-        declaring whether the result came from detection or the proportional fallback."""
+        declaring whether each anchor was detected, estimated, or a proportional fallback."""
         np_arr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         if img is None:
@@ -377,16 +445,20 @@ class CVService:
 
         h, w = img.shape[:2]
 
-        _, faces = _detect_faces_locked(img, w, h)
+        # 1. Primary detector: MediaPipe Face Landmarker handles Head Studies where
+        # the face fills the frame, as well as images upscaled past 4000 px on the long edge.
+        mesh_anchors = CVService._mesh_contour_anchors(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        if mesh_anchors is not None:
+            return CVService._construction_from_mesh(mesh_anchors)
 
+        # 2. Secondary detector: YuNet fallback
+        _, faces = _detect_faces_locked(img, w, h)
         if faces is not None and len(faces) > 0:
             best_row = faces[np.argmax(faces[:, 14])]
-            mesh_anchors = CVService._mesh_contour_anchors(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            construction = CVService._construction_from_detection(DetectedFace.from_row(best_row), mesh_anchors)
-            return {"source": "detected", **construction}
+            return CVService._construction_from_detection(DetectedFace.from_row(best_row), None)
 
-        construction = CVService._proportional_construction(w, h)
-        return {"source": "fallback", **construction}
+        # 3. Fallback path: declared proportional construction
+        return CVService._proportional_construction(w, h)
 
     @staticmethod
     def estimate_light_direction(

@@ -105,3 +105,86 @@ test('MethodOverlays counter-mirrors terminator label when isFlippedHorizontal i
   // Counter-mirroring scale(-1, 1) applied to text
   assert.ok(html.includes('scale(-1, 1)'));
 });
+
+test('MethodOverlays visibly distinguishes detected, estimated, and fallback anchors in Loomis', () => {
+  const methodState: DrawingMethodState = {
+    ...INITIAL_PROJECT_STATE.methods,
+    activeMethod: 'loomis',
+    showAnchorPoints: true,
+    loomis: {
+      center: { x: 300, y: 340, source: 'detected' },
+      radius: 170,
+      browLineY: 340,
+      noseLineY: 440,
+      chinY: 550,
+      jawWidth: 150,
+      tiltAngle: 0,
+      sources: {
+        center: 'detected',
+        radius: 'estimated',
+        browLineY: 'detected',
+        noseLineY: 'detected',
+        chinY: 'detected',
+        jawWidth: 'detected',
+      },
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    <MethodOverlays
+      width={800}
+      height={1000}
+      methodState={methodState}
+      onChange={noop}
+    />
+  );
+
+  // Center is detected (emerald #10b981)
+  assert.ok(html.includes('data-source="detected"'));
+  assert.ok(html.includes('fill="#10b981"'));
+  assert.ok(html.includes('anchor-detected'));
+  assert.ok(html.includes('Loomis Center: detected'));
+
+  // Ball size (radius) is estimated (amber #f59e0b)
+  assert.ok(html.includes('data-source="estimated"'));
+  assert.ok(html.includes('fill="#f59e0b"'));
+  assert.ok(html.includes('anchor-estimated'));
+  assert.ok(html.includes('Loomis Ball Size: estimated'));
+});
+
+test('MethodOverlays visibly marks fallback anchors in Loomis and Reilly', () => {
+  const methodState: DrawingMethodState = {
+    ...INITIAL_PROJECT_STATE.methods,
+    activeMethod: 'reilly',
+    showAnchorPoints: true,
+    reilly: {
+      browCenter: { x: 300, y: 330, source: 'fallback' },
+      noseTip: { x: 300, y: 440, source: 'fallback' },
+      mouthCenter: { x: 300, y: 500, source: 'fallback' },
+      chinBottom: { x: 300, y: 550, source: 'fallback' },
+      leftEye: { x: 235, y: 345, source: 'fallback' },
+      rightEye: { x: 365, y: 345, source: 'fallback' },
+      leftJaw: { x: 190, y: 460, source: 'fallback' },
+      rightJaw: { x: 410, y: 460, source: 'fallback' },
+      leftTemple: { x: 180, y: 280, source: 'fallback' },
+      rightTemple: { x: 420, y: 280, source: 'fallback' },
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    <MethodOverlays
+      width={800}
+      height={1000}
+      methodState={methodState}
+      onChange={noop}
+    />
+  );
+
+  // Fallback anchors render in rose #f43f5e with dashed stroke and anchor-fallback class
+  assert.ok(html.includes('data-source="fallback"'));
+  assert.ok(html.includes('fill="#f43f5e"'));
+  assert.ok(html.includes('anchor-fallback'));
+  assert.ok(html.includes('stroke-dasharray="2,2"'));
+  assert.ok(html.includes('leftEye: fallback'));
+});
+

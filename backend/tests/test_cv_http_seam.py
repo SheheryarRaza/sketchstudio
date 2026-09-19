@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 from app.main import app
 
 PORTRAIT_PATH = Path(__file__).resolve().parent / "fixtures" / "portrait.jpg"
+CLOSEUP_PORTRAIT_PATH = Path(__file__).resolve().parent / "fixtures" / "closeup_portrait.jpg"
 
 
 async def asgi_request(app, method: str, path: str, query_string: bytes = b"", headers: list = None, body_content: bytes = b""):
@@ -129,9 +130,68 @@ class TestCVHttpSeam(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(status, 200)
         data = json.loads(resp_bytes.decode("utf-8"))
-        self.assertEqual(data["source"], "detected")
         self.assertIn("loomis", data)
         self.assertIn("reilly", data)
+        self.assertEqual(data["loomis"]["center"]["source"], "detected")
+        self.assertEqual(data["loomis"]["radius"]["source"], "estimated")
+        self.assertEqual(data["loomis"]["browLineY"]["source"], "detected")
+        self.assertEqual(data["loomis"]["chinY"]["source"], "detected")
+        self.assertEqual(data["reilly"]["leftEye"]["source"], "detected")
+        self.assertEqual(data["reilly"]["rightEye"]["source"], "detected")
+        self.assertEqual(data["reilly"]["noseTip"]["source"], "detected")
+        self.assertEqual(data["reilly"]["chinBottom"]["source"], "detected")
+
+    async def test_close_up_portrait_detects_loomis_and_reilly_anchors(self):
+        """A close-up portrait fixture returns Loomis and Reilly anchors marked detected (and ball size estimated)."""
+        if not CLOSEUP_PORTRAIT_PATH.exists():
+            self.skipTest("Close-up portrait fixture not found")
+
+        headers, body = make_multipart_body("closeup_portrait.jpg", CLOSEUP_PORTRAIT_PATH.read_bytes(), content_type="image/jpeg")
+        status, _, resp_bytes = await asgi_request(
+            app,
+            "POST",
+            "/api/cv/landmarks",
+            headers=headers,
+            body_content=body,
+        )
+
+        self.assertEqual(status, 200)
+        data = json.loads(resp_bytes.decode("utf-8"))
+        self.assertEqual(data["loomis"]["center"]["source"], "detected")
+        self.assertEqual(data["loomis"]["radius"]["source"], "estimated")
+        self.assertEqual(data["loomis"]["browLineY"]["source"], "detected")
+        self.assertEqual(data["loomis"]["chinY"]["source"], "detected")
+        for key in ["leftEye", "rightEye", "noseTip", "mouthCenter", "chinBottom", "leftJaw", "rightJaw", "leftTemple", "rightTemple"]:
+            self.assertEqual(data["reilly"][key]["source"], "detected", f"Expected {key} to have source 'detected'")
+
+    async def test_upscaled_portrait_past_4000px_detects_landmarks(self):
+        """The portrait fixture upscaled past 4000 px on the long edge still detects."""
+        if not PORTRAIT_PATH.exists():
+            self.skipTest("Portrait fixture not found")
+
+        base_img = Image.open(PORTRAIT_PATH)
+        w, h = base_img.size
+        scale = 4200 / max(w, h)
+        upscaled = base_img.resize((int(w * scale), int(h * scale)))
+        buf = io.BytesIO()
+        upscaled.save(buf, format="JPEG", quality=90)
+        upscaled_bytes = buf.getvalue()
+
+        headers, body = make_multipart_body("large_portrait.jpg", upscaled_bytes, content_type="image/jpeg")
+        status, _, resp_bytes = await asgi_request(
+            app,
+            "POST",
+            "/api/cv/landmarks",
+            headers=headers,
+            body_content=body,
+        )
+
+        self.assertEqual(status, 200)
+        data = json.loads(resp_bytes.decode("utf-8"))
+        self.assertEqual(data["loomis"]["center"]["source"], "detected")
+        self.assertEqual(data["loomis"]["radius"]["source"], "estimated")
+        self.assertEqual(data["reilly"]["leftEye"]["source"], "detected")
+        self.assertEqual(data["reilly"]["rightEye"]["source"], "detected")
 
     async def test_landmark_estimation_declares_fallback_when_no_face_detected(self):
         headers, body = make_multipart_body("no_face.png", self.no_face_png)
@@ -145,9 +205,14 @@ class TestCVHttpSeam(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(status, 200)
         data = json.loads(resp_bytes.decode("utf-8"))
-        self.assertEqual(data["source"], "fallback")
         self.assertIn("loomis", data)
         self.assertIn("reilly", data)
+        # Every anchor in Loomis states fallback
+        for key in ["center", "radius", "browLineY", "noseLineY", "chinY", "jawWidth"]:
+            self.assertEqual(data["loomis"][key]["source"], "fallback", f"Expected loomis.{key} to have source 'fallback'")
+        # Every anchor in Reilly states fallback
+        for key, pt in data["reilly"].items():
+            self.assertEqual(pt["source"], "fallback", f"Expected reilly.{key} to have source 'fallback'")
 
     async def test_undecodable_image_produces_error_rather_than_fabricated_output(self):
         corrupt_bytes = b"CORRUPT_NOT_AN_IMAGE_DATA_12345"
@@ -239,9 +304,10 @@ class TestCVHttpSeam(unittest.IsolatedAsyncioTestCase):
         for i, (status, _, resp_bytes) in enumerate(responses):
             self.assertEqual(status, 200, f"Request {i} failed with status {status}: {resp_bytes.decode('utf-8', errors='replace')}")
             data = json.loads(resp_bytes.decode("utf-8"))
-            self.assertIn("source", data)
             self.assertIn("loomis", data)
             self.assertIn("reilly", data)
+            self.assertEqual(data["loomis"]["center"]["source"], "detected")
+            self.assertEqual(data["loomis"]["radius"]["source"], "estimated")
 
     async def test_concurrent_light_direction_requests_return_200(self):
         """8 concurrent light-direction requests with differing image dimensions all return 200 without race conditions."""

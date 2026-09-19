@@ -1,6 +1,14 @@
 import type { RenderSize } from './renderScale';
-import type { HistogramStats, LandmarkStats, LoomisAnchorPoints, ReillyAnchorPoints } from '../types/studio';
+import type {
+  AnchorPoint,
+  DeclaredSource,
+  HistogramStats,
+  LandmarkStats,
+  LoomisAnchorPoints,
+  ReillyAnchorPoints,
+} from '../types/studio';
 import type { LightDirectionResult } from '../types/lightDirection';
+import type { EdgeQualitySegment } from '../types/edgeQuality';
 
 export const IMAGE_TOO_LARGE_ERROR_MESSAGE = 'Image is too large for analysis. Please resize and retry.';
 
@@ -120,14 +128,25 @@ export async function fetchLandmarks(
   return res.json();
 }
 
-const scalePoint = (point: { x: number; y: number }, scale: number) => ({
+const scalePointWithSource = (
+  point: { x: number; y: number; source?: DeclaredSource },
+  scale: number,
+): AnchorPoint => ({
   x: point.x / scale,
   y: point.y / scale,
+  source: point.source ?? 'fallback',
 });
+
+const getScalarVal = (val: { value: number } | number): number =>
+  typeof val === 'object' && val !== null ? val.value : val;
+
+const getScalarSource = (val: { source: DeclaredSource } | number, fallback: DeclaredSource): DeclaredSource =>
+  typeof val === 'object' && val !== null && 'source' in val ? val.source : fallback;
 
 /**
  * Rescales Landmark Auto-Snap anchors from the capped-image space they were detected in
- * onto the native Reference Image pixel space that DrawingMethodState is stored in.
+ * onto the native Reference Image pixel space that DrawingMethodState is stored in,
+ * preserving each anchor's Declared Source.
  */
 export function scaleLandmarksToImageSpace(
   data: LandmarkStats,
@@ -135,32 +154,59 @@ export function scaleLandmarksToImageSpace(
 ): { loomis: LoomisAnchorPoints; reilly: ReillyAnchorPoints } {
   const { loomis, reilly } = data;
 
+  const radiusVal = getScalarVal(loomis.radius);
+  const radiusSource = getScalarSource(loomis.radius, 'estimated');
+
+  const browVal = getScalarVal(loomis.browLineY);
+  const browSource = getScalarSource(loomis.browLineY, 'fallback');
+
+  const noseVal = getScalarVal(loomis.noseLineY);
+  const noseSource = getScalarSource(loomis.noseLineY, 'fallback');
+
+  const chinVal = getScalarVal(loomis.chinY);
+  const chinSource = getScalarSource(loomis.chinY, 'fallback');
+
+  const jawVal = getScalarVal(loomis.jawWidth);
+  const jawSource = getScalarSource(loomis.jawWidth, 'fallback');
+
+  const tiltVal = typeof loomis.tiltAngle === 'object' && loomis.tiltAngle !== null
+    ? (loomis.tiltAngle as any).value
+    : (loomis.tiltAngle ?? 0);
+
+  const centerPoint = scalePointWithSource(loomis.center, size.scale);
+
   return {
     loomis: {
-      ...loomis,
-      center: scalePoint(loomis.center, size.scale),
-      radius: loomis.radius / size.scale,
-      browLineY: loomis.browLineY / size.scale,
-      noseLineY: loomis.noseLineY / size.scale,
-      chinY: loomis.chinY / size.scale,
-      jawWidth: loomis.jawWidth / size.scale,
+      center: centerPoint,
+      radius: radiusVal / size.scale,
+      browLineY: browVal / size.scale,
+      noseLineY: noseVal / size.scale,
+      chinY: chinVal / size.scale,
+      jawWidth: jawVal / size.scale,
+      tiltAngle: tiltVal,
+      sources: {
+        center: centerPoint.source,
+        radius: radiusSource,
+        browLineY: browSource,
+        noseLineY: noseSource,
+        chinY: chinSource,
+        jawWidth: jawSource,
+      },
     },
     reilly: {
-      browCenter: scalePoint(reilly.browCenter, size.scale),
-      noseTip: scalePoint(reilly.noseTip, size.scale),
-      mouthCenter: scalePoint(reilly.mouthCenter, size.scale),
-      chinBottom: scalePoint(reilly.chinBottom, size.scale),
-      leftEye: scalePoint(reilly.leftEye, size.scale),
-      rightEye: scalePoint(reilly.rightEye, size.scale),
-      leftJaw: scalePoint(reilly.leftJaw, size.scale),
-      rightJaw: scalePoint(reilly.rightJaw, size.scale),
-      leftTemple: scalePoint(reilly.leftTemple, size.scale),
-      rightTemple: scalePoint(reilly.rightTemple, size.scale),
+      browCenter: scalePointWithSource(reilly.browCenter, size.scale),
+      noseTip: scalePointWithSource(reilly.noseTip, size.scale),
+      mouthCenter: scalePointWithSource(reilly.mouthCenter, size.scale),
+      chinBottom: scalePointWithSource(reilly.chinBottom, size.scale),
+      leftEye: scalePointWithSource(reilly.leftEye, size.scale),
+      rightEye: scalePointWithSource(reilly.rightEye, size.scale),
+      leftJaw: scalePointWithSource(reilly.leftJaw, size.scale),
+      rightJaw: scalePointWithSource(reilly.rightJaw, size.scale),
+      leftTemple: scalePointWithSource(reilly.leftTemple, size.scale),
+      rightTemple: scalePointWithSource(reilly.rightTemple, size.scale),
     },
   };
 }
-
-import type { EdgeQualitySegment } from '../types/edgeQuality';
 
 /**
  * Posts the display-capped Reference Image to the edge suggestion endpoint and

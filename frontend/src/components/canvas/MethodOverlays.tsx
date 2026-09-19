@@ -1,10 +1,43 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import type { DrawingMethodState } from '../../types/studio';
+import type { DeclaredSource, DrawingMethodState } from '../../types/studio';
 
 import { mapPointerToNativeX } from '../../utils/flipHorizontal';
 import { calculateTerminatorLine, normalizeAngle } from '../../utils/lightDirection';
+
+export function getAnchorVisualProps(source: DeclaredSource | undefined) {
+  switch (source) {
+    case 'detected':
+      return {
+        fill: '#10b981',
+        stroke: '#064e3b',
+        strokeWidth: 2,
+        strokeDasharray: undefined,
+        className: 'anchor-detected',
+        label: 'detected',
+      };
+    case 'estimated':
+      return {
+        fill: '#f59e0b',
+        stroke: '#78350f',
+        strokeWidth: 2,
+        strokeDasharray: undefined,
+        className: 'anchor-estimated',
+        label: 'estimated',
+      };
+    case 'fallback':
+    default:
+      return {
+        fill: '#f43f5e',
+        stroke: '#881337',
+        strokeWidth: 1.5,
+        strokeDasharray: '2,2',
+        className: 'anchor-fallback',
+        label: 'fallback',
+      };
+  }
+}
 
 interface MethodOverlaysProps {
   width: number;
@@ -46,7 +79,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
     if (activeMethod === 'loomis') {
       const loomis = { ...methodState.loomis };
       if (draggingPoint === 'loomis-center') {
-        loomis.center = { x, y };
+        loomis.center = { ...loomis.center, x, y };
       } else if (draggingPoint === 'loomis-radius') {
         loomis.radius = Math.max(20, Math.hypot(x - loomis.center.x, y - loomis.center.y));
       } else if (draggingPoint === 'loomis-brow') {
@@ -60,7 +93,7 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
     } else if (activeMethod === 'reilly') {
       const reilly = { ...methodState.reilly };
       if (draggingPoint in reilly) {
-        (reilly as any)[draggingPoint] = { x, y };
+        (reilly as any)[draggingPoint] = { ...(reilly as any)[draggingPoint], x, y };
         onChange({ ...methodState, reilly });
       }
     } else if (activeMethod === 'bargue') {
@@ -148,35 +181,73 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
                L ${methodState.loomis.center.x + methodState.loomis.radius * 0.8} ${methodState.loomis.browLineY}`}
           />
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
-              <circle
-                cx={methodState.loomis.center.x}
-                cy={methodState.loomis.center.y}
-                r={6}
-                className="cursor-move hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-center', e)}
-              />
-              <circle
-                cx={methodState.loomis.center.x + methodState.loomis.radius}
-                cy={methodState.loomis.center.y}
-                r={6}
-                className="cursor-ew-resize hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-radius', e)}
-              />
-              <circle
-                cx={methodState.loomis.center.x}
-                cy={methodState.loomis.browLineY}
-                r={5}
-                className="cursor-ns-resize hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-brow', e)}
-              />
-              <circle
-                cx={methodState.loomis.center.x}
-                cy={methodState.loomis.chinY}
-                r={5}
-                className="cursor-ns-resize hover:scale-125 transition-transform"
-                onPointerDown={(e) => handlePointerDown('loomis-chin', e)}
-              />
+            <g className="pointer-events-auto">
+              {[
+                {
+                  id: 'loomis-center',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.center.y,
+                  r: 6,
+                  cursor: 'cursor-move',
+                  title: 'Loomis Center',
+                  source: methodState.loomis.center.source || methodState.loomis.sources?.center || 'fallback',
+                },
+                {
+                  id: 'loomis-radius',
+                  cx: methodState.loomis.center.x + methodState.loomis.radius,
+                  cy: methodState.loomis.center.y,
+                  r: 6,
+                  cursor: 'cursor-ew-resize',
+                  title: 'Loomis Ball Size',
+                  source: methodState.loomis.sources?.radius || 'estimated',
+                },
+                {
+                  id: 'loomis-brow',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.browLineY,
+                  r: 5,
+                  cursor: 'cursor-ns-resize',
+                  title: 'Loomis Brow Line',
+                  source: methodState.loomis.sources?.browLineY || 'fallback',
+                },
+                {
+                  id: 'loomis-nose',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.noseLineY,
+                  r: 5,
+                  cursor: 'cursor-ns-resize',
+                  title: 'Loomis Nose Line',
+                  source: methodState.loomis.sources?.noseLineY || 'fallback',
+                },
+                {
+                  id: 'loomis-chin',
+                  cx: methodState.loomis.center.x,
+                  cy: methodState.loomis.chinY,
+                  r: 5,
+                  cursor: 'cursor-ns-resize',
+                  title: 'Loomis Chin',
+                  source: methodState.loomis.sources?.chinY || 'fallback',
+                },
+              ].map((anchor) => {
+                const style = getAnchorVisualProps(anchor.source);
+                return (
+                  <circle
+                    key={anchor.id}
+                    cx={anchor.cx}
+                    cy={anchor.cy}
+                    r={anchor.r}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`${anchor.cursor} hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown(anchor.id, e)}
+                  >
+                    <title>{`${anchor.title}: ${style.label}`}</title>
+                  </circle>
+                );
+              })}
             </g>
           )}
         </g>
@@ -218,17 +289,27 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
                Q ${methodState.reilly.chinBottom.x + 30} ${methodState.reilly.chinBottom.y + 60} ${methodState.reilly.chinBottom.x + 10} ${methodState.reilly.chinBottom.y + 100}`}
           />
           {showAnchorPoints && (
-            <g fill={color} stroke="#000" strokeWidth="1.5" className="pointer-events-auto">
-              {Object.entries(methodState.reilly).map(([key, pt]) => (
-                <circle
-                  key={key}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={5}
-                  className="cursor-pointer hover:scale-125 transition-transform"
-                  onPointerDown={(e) => handlePointerDown(key, e)}
-                />
-              ))}
+            <g className="pointer-events-auto">
+              {Object.entries(methodState.reilly).map(([key, pt]) => {
+                const style = getAnchorVisualProps(pt.source);
+                return (
+                  <circle
+                    key={key}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={5}
+                    fill={style.fill}
+                    stroke={style.stroke}
+                    strokeWidth={style.strokeWidth}
+                    strokeDasharray={style.strokeDasharray}
+                    data-source={style.label}
+                    className={`cursor-pointer hover:scale-125 transition-transform ${style.className}`}
+                    onPointerDown={(e) => handlePointerDown(key, e)}
+                  >
+                    <title>{`${key}: ${style.label}`}</title>
+                  </circle>
+                );
+              })}
             </g>
           )}
         </g>
