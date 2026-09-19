@@ -78,16 +78,25 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
 
     if (activeMethod === 'loomis') {
       const loomis = { ...methodState.loomis };
+      const tilt = loomis.tiltAngle || 0;
+      let localY = y;
+      if (tilt !== 0) {
+        const rad = (-tilt * Math.PI) / 180;
+        const dx = x - loomis.center.x;
+        const dy = y - loomis.center.y;
+        localY = loomis.center.y + dx * Math.sin(rad) + dy * Math.cos(rad);
+      }
+
       if (draggingPoint === 'loomis-center') {
         loomis.center = { ...loomis.center, x, y };
       } else if (draggingPoint === 'loomis-radius') {
         loomis.radius = Math.max(20, Math.hypot(x - loomis.center.x, y - loomis.center.y));
       } else if (draggingPoint === 'loomis-brow') {
-        loomis.browLineY = y;
+        loomis.browLineY = localY;
       } else if (draggingPoint === 'loomis-nose') {
-        loomis.noseLineY = y;
+        loomis.noseLineY = localY;
       } else if (draggingPoint === 'loomis-chin') {
-        loomis.chinY = y;
+        loomis.chinY = localY;
       }
       onChange({ ...methodState, loomis });
     } else if (activeMethod === 'reilly') {
@@ -130,7 +139,12 @@ export const MethodOverlays: React.FC<MethodOverlaysProps> = ({
       onPointerCancel={handlePointerUp}
     >
       {activeMethod === 'loomis' && (
-        <g stroke={color} fill="none" strokeWidth="2">
+        <g
+          stroke={color}
+          fill="none"
+          strokeWidth="2"
+          transform={methodState.loomis.tiltAngle ? `rotate(${methodState.loomis.tiltAngle}, ${methodState.loomis.center.x}, ${methodState.loomis.center.y})` : undefined}
+        >
           <circle
             cx={methodState.loomis.center.x}
             cy={methodState.loomis.center.y}

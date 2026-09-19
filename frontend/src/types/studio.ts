@@ -79,7 +79,7 @@ export interface LandmarkStats {
     noseLineY: { value: number; y?: number; source: DeclaredSource } | number;
     chinY: { value: number; y?: number; source: DeclaredSource } | number;
     jawWidth: { value: number; source: DeclaredSource } | number;
-    tiltAngle: number;
+    tiltAngle: { value: number; source: DeclaredSource } | number;
   };
   reilly: ReillyAnchorPoints;
 }
@@ -151,7 +151,7 @@ export interface PaperMappingConfig {
   fillMode: PaperFillMode;
 }
 
-export type LoomisAnchorKey = 'center' | 'radius' | 'browLineY' | 'noseLineY' | 'chinY' | 'jawWidth';
+export type LoomisAnchorKey = 'center' | 'radius' | 'browLineY' | 'noseLineY' | 'chinY' | 'jawWidth' | 'tiltAngle';
 
 export interface LoomisAnchorPoints {
   center: AnchorPoint;

@@ -188,3 +188,67 @@ test('MethodOverlays visibly marks fallback anchors in Loomis and Reilly', () =>
   assert.ok(html.includes('leftEye: fallback'));
 });
 
+test('MethodOverlays renders tilted Loomis construction when tiltAngle is non-zero', () => {
+  const methodState: DrawingMethodState = {
+    ...INITIAL_PROJECT_STATE.methods,
+    activeMethod: 'loomis',
+    showAnchorPoints: true,
+    loomis: {
+      center: { x: 300, y: 340, source: 'detected' },
+      radius: 170,
+      browLineY: 340,
+      noseLineY: 440,
+      chinY: 550,
+      jawWidth: 150,
+      tiltAngle: 14.5,
+      sources: {
+        center: 'detected',
+        radius: 'estimated',
+        browLineY: 'detected',
+        noseLineY: 'detected',
+        chinY: 'detected',
+        jawWidth: 'detected',
+      },
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    <MethodOverlays
+      width={800}
+      height={1000}
+      methodState={methodState}
+      onChange={noop}
+    />
+  );
+
+  assert.ok(html.includes('rotate(14.5, 300, 340)'), 'Expected rotate transform for tilted Loomis construction');
+});
+
+test('MethodOverlays renders upright Loomis construction without tilt transform when tiltAngle is zero', () => {
+  const methodState: DrawingMethodState = {
+    ...INITIAL_PROJECT_STATE.methods,
+    activeMethod: 'loomis',
+    showAnchorPoints: true,
+    loomis: {
+      center: { x: 300, y: 340, source: 'detected' },
+      radius: 170,
+      browLineY: 340,
+      noseLineY: 440,
+      chinY: 550,
+      jawWidth: 150,
+      tiltAngle: 0,
+    },
+  };
+
+  const html = renderToStaticMarkup(
+    <MethodOverlays
+      width={800}
+      height={1000}
+      methodState={methodState}
+      onChange={noop}
+    />
+  );
+
+  assert.ok(!html.includes('rotate('), 'Expected no rotate transform when tiltAngle is zero');
+});
+

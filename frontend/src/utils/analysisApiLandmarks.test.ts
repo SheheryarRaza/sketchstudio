@@ -13,7 +13,7 @@ test('scaleLandmarksToImageSpace rescales detected response and preserves per-an
       noseLineY: { value: 170, source: 'detected' },
       chinY: { value: 230, source: 'detected' },
       jawWidth: { value: 90, source: 'detected' },
-      tiltAngle: 0,
+      tiltAngle: { value: 5.5, source: 'detected' },
     },
     reilly: {
       browCenter: { x: 200, y: 130, source: 'detected' },
@@ -45,6 +45,7 @@ test('scaleLandmarksToImageSpace rescales detected response and preserves per-an
   assert.equal(rescaled.loomis.noseLineY, 340);
   assert.equal(rescaled.loomis.chinY, 460);
   assert.equal(rescaled.loomis.jawWidth, 180);
+  assert.equal(rescaled.loomis.tiltAngle, 5.5);
 
   // Check Declared Sources
   assert.equal(rescaled.loomis.center.source, 'detected');
@@ -53,6 +54,7 @@ test('scaleLandmarksToImageSpace rescales detected response and preserves per-an
   assert.equal(rescaled.loomis.sources?.browLineY, 'detected');
   assert.equal(rescaled.loomis.sources?.chinY, 'detected');
   assert.equal(rescaled.loomis.sources?.jawWidth, 'detected');
+  assert.equal(rescaled.loomis.sources?.tiltAngle, 'detected');
 
   // Check Reilly points rescaled and sources preserved
   assert.equal(rescaled.reilly.leftEye.x, 340);
@@ -108,6 +110,7 @@ test('scaleLandmarksToImageSpace rescales fallback response and preserves fallba
   assert.equal(rescaled.loomis.center.source, 'fallback');
   assert.equal(rescaled.loomis.sources?.radius, 'fallback');
   assert.equal(rescaled.loomis.sources?.browLineY, 'fallback');
+  assert.equal(rescaled.loomis.sources?.tiltAngle, 'fallback');
 
   for (const [key, pt] of Object.entries(rescaled.reilly)) {
     assert.equal(pt.source, 'fallback', `Expected reilly.${key} to have source 'fallback'`);

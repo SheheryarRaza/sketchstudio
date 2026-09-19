@@ -10,6 +10,7 @@ from app.main import app
 
 PORTRAIT_PATH = Path(__file__).resolve().parent / "fixtures" / "portrait.jpg"
 CLOSEUP_PORTRAIT_PATH = Path(__file__).resolve().parent / "fixtures" / "closeup_portrait.jpg"
+ROLLED_PORTRAIT_PATH = Path(__file__).resolve().parent / "fixtures" / "rolled_portrait.jpg"
 
 
 async def asgi_request(app, method: str, path: str, query_string: bytes = b"", headers: list = None, body_content: bytes = b""):
@@ -141,6 +142,52 @@ class TestCVHttpSeam(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["reilly"]["noseTip"]["source"], "detected")
         self.assertEqual(data["reilly"]["chinBottom"]["source"], "detected")
 
+    async def test_upright_portrait_returns_tilt_near_zero(self):
+        """An upright fixture returns a tilt near zero and ball size declared estimated."""
+        if not PORTRAIT_PATH.exists():
+            self.skipTest("Portrait fixture not found")
+
+        headers, body = make_multipart_body("portrait.jpg", PORTRAIT_PATH.read_bytes(), content_type="image/jpeg")
+        status, _, resp_bytes = await asgi_request(
+            app,
+            "POST",
+            "/api/cv/landmarks",
+            headers=headers,
+            body_content=body,
+        )
+
+        self.assertEqual(status, 200)
+        data = json.loads(resp_bytes.decode("utf-8"))
+        self.assertEqual(data["loomis"]["radius"]["source"], "estimated")
+        self.assertIn("tiltAngle", data["loomis"])
+        self.assertEqual(data["loomis"]["tiltAngle"]["source"], "detected")
+        tilt = data["loomis"]["tiltAngle"]["value"]
+        self.assertLess(abs(tilt), 2.0)
+        self.assertGreater(data["loomis"]["radius"]["value"], 120)
+
+    async def test_rolled_head_fixture_returns_nonzero_tilt_with_correct_sign(self):
+        """A rolled-head fixture returns a non-zero tilt with the correct sign (backend HTTP seam)."""
+        if not ROLLED_PORTRAIT_PATH.exists():
+            self.skipTest("Rolled portrait fixture not found")
+
+        headers, body = make_multipart_body("rolled_portrait.jpg", ROLLED_PORTRAIT_PATH.read_bytes(), content_type="image/jpeg")
+        status, _, resp_bytes = await asgi_request(
+            app,
+            "POST",
+            "/api/cv/landmarks",
+            headers=headers,
+            body_content=body,
+        )
+
+        self.assertEqual(status, 200)
+        data = json.loads(resp_bytes.decode("utf-8"))
+        self.assertEqual(data["loomis"]["radius"]["source"], "estimated")
+        self.assertIn("tiltAngle", data["loomis"])
+        self.assertEqual(data["loomis"]["tiltAngle"]["source"], "detected")
+        tilt = data["loomis"]["tiltAngle"]["value"]
+        self.assertGreater(tilt, 5.0)
+        self.assertLess(tilt, 25.0)
+
     async def test_close_up_portrait_detects_loomis_and_reilly_anchors(self):
         """A close-up portrait fixture returns Loomis and Reilly anchors marked detected (and ball size estimated)."""
         if not CLOSEUP_PORTRAIT_PATH.exists():
@@ -208,7 +255,7 @@ class TestCVHttpSeam(unittest.IsolatedAsyncioTestCase):
         self.assertIn("loomis", data)
         self.assertIn("reilly", data)
         # Every anchor in Loomis states fallback
-        for key in ["center", "radius", "browLineY", "noseLineY", "chinY", "jawWidth"]:
+        for key in ["center", "radius", "browLineY", "noseLineY", "chinY", "jawWidth", "tiltAngle"]:
             self.assertEqual(data["loomis"][key]["source"], "fallback", f"Expected loomis.{key} to have source 'fallback'")
         # Every anchor in Reilly states fallback
         for key, pt in data["reilly"].items():
