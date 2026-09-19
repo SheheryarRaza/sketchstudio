@@ -468,6 +468,8 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: src,
         title: file.name.replace(/\.[^/.]+$/, ''),
+        histogram: { status: 'idle' },
+        landmarks: { status: 'idle' },
       }));
       setViewState((prev) => ({
         ...prev,
@@ -497,6 +499,8 @@ export default function StudioHomePage() {
         ...prev,
         imageSrc: dataUrl,
         title: title,
+        histogram: { status: 'idle' },
+        landmarks: { status: 'idle' },
       }));
       setViewState((prev) => ({
         ...prev,
@@ -563,6 +567,7 @@ export default function StudioHomePage() {
 
     setMethodsState(applied.methods);
     setGridState(applied.grid);
+    setSandboxSection('values');
     setIsPresetPickerOpen(false);
   };
 

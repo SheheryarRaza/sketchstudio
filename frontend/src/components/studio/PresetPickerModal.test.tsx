@@ -33,7 +33,54 @@ test('PresetPickerModal renders all 5 preset cards and skip affordance when isOp
   assert.match(html, /Expressive\/Dynamic Pose/);
   assert.match(html, /Classical\/Cast Study/);
   assert.match(html, /Full Scene\/Composition/);
-  assert.match(html, /Skip to Studio/i);
+  assert.match(html, /Skip to Studio with defaults/i);
+  assert.match(html, /Sandbox Mode/);
+});
+
+test('PresetPickerModal displays bundle contents as pills for each curated preset', () => {
+  const html = renderToStaticMarkup(
+    <PresetPickerModal
+      isOpen={true}
+      onClose={noop}
+      onSelectPreset={noop}
+    />
+  );
+
+  // View modes
+  assert.match(html, /Value Study/);
+  assert.match(html, /Edge Quality/);
+  assert.match(html, /Photo View/);
+
+  // Drawing methods
+  assert.match(html, /Loomis Head/);
+  assert.match(html, /Asaro Planar/);
+  assert.match(html, /Reilly Rhythms/);
+  assert.match(html, /Bargue Envelope/);
+  assert.match(html, /Harmonic Armature/);
+
+  // Grids
+  assert.match(html, /Golden Ratio \/ Thirds/);
+  assert.match(html, /No Grid/);
+  assert.match(html, /Diagonal Grid/);
+
+  // Medium
+  assert.match(html, /graphite/);
+
+  // Isolation
+  assert.match(html, /Isolate shadows/);
+});
+
+test('PresetPickerModal highlights currently active preset when currentPresetId is provided', () => {
+  const html = renderToStaticMarkup(
+    <PresetPickerModal
+      isOpen={true}
+      currentPresetId="portrait-static"
+      onClose={noop}
+      onSelectPreset={noop}
+    />
+  );
+
+  assert.match(html, /Active/);
 });
 
 test('PresetPickerModal displays Auto-Suggest Chip and highlights suggested preset for high contrast photo', () => {
